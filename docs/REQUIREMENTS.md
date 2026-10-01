@@ -136,8 +136,8 @@ Reproducible experiments, containerized environment, tests, CI.
 | Concern | Choice | Notes |
 |---|---|---|
 | ROS 2 | **Humble** (Ubuntu 22.04) | Runs natively in the current dev environment (Ubuntu 22.04) and matches `amr-sim-lab`. LTS until May 2027; a later move to Jazzy (Ubuntu 24.04) is a known follow-up. |
-| Physics | **MuJoCo** 3.x | Light, stable, fits 8 GB easily. |
-| Sim ↔ ROS 2 | `mujoco_ros2_control` (ros-controls) | Exists as a ros-controls project. Available as `ros-humble-mujoco-ros2-control`; maturity must be checked in M0, with a thin custom hardware interface as the fallback. |
+| Physics | **MuJoCo** 3.12.0 | Light, stable, fits 8 GB easily. Pinned to the version `mujoco_ros2_control` bundles (D14). |
+| Sim ↔ ROS 2 | `mujoco_ros2_control` 0.1.2 (ros-controls) | `ros-humble-mujoco-ros2-control`. Chosen by the M0 spike (D13). |
 | Robot model | Franka Panda | MJCF from MuJoCo Menagerie. URDF and MoveIt config from upstream ROS 2 packages. |
 | Kinematics | Eigen (hand-written C++) + Pinocchio | Pinocchio is used to check the hand-written implementation. |
 | Planning | MoveIt 2 (+ MoveIt Servo) | |
@@ -246,6 +246,8 @@ Each milestone should end with something worth showing (a video plus numbers), s
 | D10 | C++ by default, Python where it is clearly easier | Matches job postings |
 | D11 | Mostly local compute; occasional cloud GPU rental allowed | Cost |
 | D12 | Rerun for the browser viewer (no Foxglove); custom viewer as a future milestone | Open source, local, no frontend to maintain now; keeps the option to build one |
+| D13 | Sim backend: `mujoco_ros2_control` 0.1.2, without lockstep (physics free-runs on sim time) | M0 spike (Plan 01, Task 10): meets every need except lockstep; writing our own interface would duplicate cameras, reset, viewer and `/clock` |
+| D14 | MuJoCo 3.12.0 everywhere (pip pinned to `mujoco_vendor`'s version) | Gymnasium training and the ROS 2 sim run the same engine |
 
 ## 11. Open Questions
 

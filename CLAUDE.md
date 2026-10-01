@@ -20,7 +20,7 @@ A ROS 2 Humble + MuJoCo simulation sandbox built around a robot arm (Franka Pand
 ## 🏗️ Project Stack
 
 - **ROS 2 Humble** (Ubuntu 22.04) - backbone; colcon workspace under `src/`
-- **MuJoCo 3.x** - physics; connected to ROS 2 through `ros2_control` (`mujoco_ros2_control`, or a thin custom hardware interface as fallback)
+- **MuJoCo 3.12.0** - physics; connected to ROS 2 through `ros2_control` via `mujoco_ros2_control` (D13). The pip bindings are pinned to the same version (D14)
 - **C++17/20** (default) - controllers, hardware interface, kinematics (Eigen), perception, task executive, viz bridge
 - **Python 3** (where clearly easier) - launch files, eval scripts, Gymnasium wrapper, learning code, VLM planner
 - **ros2_control** - controllers and the hardware swap point (sim ↔ future real arm)

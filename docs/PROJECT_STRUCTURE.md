@@ -13,7 +13,7 @@
 | Layer           | Technology                                                       |
 | --------------- | ---------------------------------------------------------------- |
 | Middleware      | ROS 2 Humble (Ubuntu 22.04)                                      |
-| Physics         | MuJoCo 3.x (`mujoco_ros2_control` or custom hardware interface)  |
+| Physics         | MuJoCo 3.12.0 via `mujoco_ros2_control` 0.1.2 (D13, D14)         |
 | Control         | ros2_control, custom C++ controllers (OSC, impedance)            |
 | Planning        | MoveIt 2, MoveIt Servo                                           |
 | Kinematics      | Hand-written C++ (Eigen), checked against Pinocchio              |

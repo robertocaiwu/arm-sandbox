@@ -14,6 +14,7 @@ import pytest
 os.environ.setdefault("MUJOCO_GL", "egl")
 
 RERUN_VENV_PYTHON = "/opt/rerun/bin/python"
+MUJOCO_VENDOR_LIB = "/opt/ros/humble/opt/mujoco_vendor/lib"
 
 
 def test_ros_distro_is_humble() -> None:
@@ -36,6 +37,8 @@ def test_ros_python_keeps_numpy_1() -> None:
     [
         "controller_manager",
         "joint_trajectory_controller",
+        "mujoco_ros2_control",
+        "mujoco_ros2_control_plugins",
         "moveit_ros_move_group",
         "moveit_servo",
         "gripper_controllers",
@@ -70,6 +73,17 @@ def test_mujoco_simulates_a_falling_body() -> None:
     for _ in range(100):
         mujoco.mj_step(model, data)
     assert data.qpos[2] < start_height
+
+
+def test_pip_mujoco_matches_ros_sim_mujoco() -> None:
+    # The Gymnasium path (pip mujoco) and the ROS 2 sim (mujoco_vendor) must run the same
+    # engine version (decision D14). mujoco_vendor ships libmujoco.so.<version>.
+    import mujoco
+
+    vendor_libs = [p for p in os.listdir(MUJOCO_VENDOR_LIB) if p.startswith("libmujoco.so.")]
+    assert vendor_libs, f"no libmujoco.so.<version> in {MUJOCO_VENDOR_LIB}"
+    vendor_version = vendor_libs[0].removeprefix("libmujoco.so.")
+    assert mujoco.__version__ == vendor_version
 
 
 def test_mujoco_offscreen_render() -> None:

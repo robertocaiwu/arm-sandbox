@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install everything arm-sandbox needs on Ubuntu 22.04 (Jammy):
-#   - ROS 2 Humble + MoveIt 2 + ros2_control + Pinocchio + BehaviorTree.CPP (apt)
+#   - ROS 2 Humble + MoveIt 2 + ros2_control + mujoco_ros2_control + Pinocchio + BehaviorTree.CPP (apt)
 #   - build/test/lint tools and GL libraries for MuJoCo rendering (apt)
 #   - MuJoCo Python bindings on the system Python (pip)
 #   - Rerun viewer in its own venv (/opt/rerun), `rerun` CLI on PATH
@@ -14,7 +14,9 @@ set -euo pipefail
 
 readonly ROS_DISTRO_NAME="humble"
 readonly REQUIRED_CODENAME="jammy"
-readonly MUJOCO_VERSION="${MUJOCO_VERSION:-3.14.0}"
+# Must match the MuJoCo bundled by ros-humble-mujoco-vendor (used by mujoco_ros2_control), so the
+# Gymnasium training path and the ROS 2 sim run the same physics engine (decision D14).
+readonly MUJOCO_VERSION="${MUJOCO_VERSION:-3.12.0}"
 readonly RERUN_VERSION="${RERUN_VERSION:-0.38.1}"
 readonly RERUN_VENV="/opt/rerun"
 # ROS 2 runs on the distro's Python. Never use whichever `python3` comes first on PATH
@@ -83,6 +85,8 @@ install_apt_packages() {
         "ros-${ROS_DISTRO_NAME}-robot-state-publisher" \
         "ros-${ROS_DISTRO_NAME}-ros2-control" \
         "ros-${ROS_DISTRO_NAME}-ros2-controllers" \
+        "ros-${ROS_DISTRO_NAME}-mujoco-ros2-control" \
+        "ros-${ROS_DISTRO_NAME}-mujoco-ros2-control-plugins" \
         "ros-${ROS_DISTRO_NAME}-moveit" \
         "ros-${ROS_DISTRO_NAME}-moveit-servo" \
         "ros-${ROS_DISTRO_NAME}-moveit-resources-panda-moveit-config" \
