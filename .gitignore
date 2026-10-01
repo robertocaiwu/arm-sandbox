@@ -1,0 +1,24 @@
+# colcon
+build/
+install/
+log/
+
+# evaluation outputs (REQUIREMENTS FR-31; regenerated from configs)
+results/
+
+# local, per-PC settings (e.g. MUJOCO_GL override)
+.env
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# recordings (rosbag2, Rerun)
+*.mcap
+*.db3
+*.rrd
+
+# Claude Code: local settings and exported session bundles (private history)
+.claude/settings.local.json
+*.claude-session.tar.gz

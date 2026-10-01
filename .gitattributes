@@ -1,0 +1,8 @@
+# The repo moves between Windows/WSL2 and Linux PCs: keep LF everywhere,
+# otherwise shell scripts and the Dockerfile break with CRLF.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.stl binary
+*.obj -diff
