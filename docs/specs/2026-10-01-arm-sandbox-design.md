@@ -167,8 +167,9 @@ language: "put the red cube in the bin"   # used by Phase B
 
 ## Containers and Dev Environment
 
-- `docker/Dockerfile`: `ros:jazzy` base, plus MoveIt 2, `ros2_control`, MuJoCo (pinned), Pinocchio, BehaviorTree.CPP, the Rerun SDK and CLI, and Python dependencies. Phase B adds a separate stage with PyTorch and LeRobot, so the Phase A image stays lean.
-- `docker-compose.yml`, service `sandbox`: GPU reservation, `network_mode: host`, WSLg mounts (`/tmp/.X11-unix`, `/mnt/wslg`) for the native viewer and RViz2, workspace bind mount, and an idle `dev` command. The VS Code dev container attaches to it.
+- `docker/Dockerfile`: `ros:jazzy-ros-base`, plus MoveIt 2, `ros2_control`, MuJoCo (pinned, pip), Pinocchio, BehaviorTree.CPP, the Rerun CLI, and the Claude Code CLI. Phase B adds a separate stage with PyTorch and LeRobot, so the Phase A image stays lean.
+- **Two Python worlds.** ROS 2 nodes run on the system Python with NumPy 1.x (`numpy<2`), because Jazzy's compiled bindings (e.g. pinocchio/eigenpy) are built against it. Tools that need NumPy 2 get their own venv: `rerun-sdk` lives in `/opt/rerun`, and only its `rerun` CLI is on `PATH`. The viz bridge uses the Rerun C++ SDK, so no ROS node imports the Python SDK. Phase B learning code (LeRobot) follows the same rule.
+- `docker/docker-compose.yml` (project name `arm-sandbox`), service `sandbox`: GPU reservation, `network_mode: host`, `ipc: host`, X11 socket mount (works for WSLg and native Linux), repo mounted at `/workspace/arm-sandbox` on every PC, host `~/.claude` + `~/.claude.json` mounted (Claude Code sessions persist and move between PCs), and an idle `sleep infinity` command. The container user mirrors the host user (same name, UID, GID via build args; the base image's `ubuntu` user is removed), with passwordless sudo. The VS Code dev container attaches to it as that user.
 - Headless runs set `MUJOCO_GL=egl` (or `osmesa` in CI) and `viewer:=false`.
 
 ## Testing
@@ -191,7 +192,7 @@ See [`../PROJECT_STRUCTURE.md`](../PROJECT_STRUCTURE.md) for the full tree. In s
 ```
 arm-sandbox/
   src/arm_sandbox_*/      # colcon packages
-  docker/  docker-compose.yml  .devcontainer/
+  docker/  (Dockerfile, docker-compose.yml)  .devcontainer/
   .github/workflows/ci.yml
   Makefile
   docs/  (REQUIREMENTS.md, PROJECT_STRUCTURE.md, specs/)

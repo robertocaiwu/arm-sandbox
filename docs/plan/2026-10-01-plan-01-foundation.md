@@ -17,7 +17,7 @@
 - "Fully containerized. Nothing is installed on the host." The only host prerequisites are Docker, the NVIDIA driver + Container Toolkit, VS Code, git, and `gh`. (spec: Decisions)
 - `arm-sandbox` is a **standalone repo**. Never add it to the `projects` repo (no submodule, no `git add` from `projects`), and never reference files outside the repo.
 - Container path of the repo is **`/workspace/arm-sandbox`** on every PC, wherever it is cloned on the host. Don't change it, because session resume depends on it.
-- Container user is **`ubuntu` (UID 1000)**, the default user of the Ubuntu 24.04 base image.
+- Container user **mirrors the host user** (same name, UID, GID, passed as build args). The base image's `ubuntu` user is removed so UID/GID 1000 are free.
 - Pinned dependencies (NFR-3): every pip package version is pinned in `docker/Dockerfile`.
 - **No secrets in the repo** (CLAUDE.md, Security). The Claude session bundle contains private conversation history and is **never committed**.
 - Robot-specific values live only in `src/arm_sandbox_description/` (FR-7).
@@ -39,7 +39,7 @@ Every step is tagged:
 | `.gitattributes` | LF line endings everywhere (repo moves between Windows/WSL/Linux PCs) |
 | `LICENSE` | Apache-2.0 (compatible with MuJoCo Menagerie) |
 | `docker/Dockerfile` | The single dev image |
-| `docker-compose.yml` | `sandbox` service: GPU, host network, X11, mounts (repo, `~/.claude`, git/ssh config) |
+| `docker/docker-compose.yml` | `sandbox` service (project `arm-sandbox`): GPU, host network, X11, mounts (repo, `~/.claude`, git/ssh config) |
 | `.devcontainer/devcontainer.json` | VS Code attaches to the `sandbox` service |
 | `Makefile` | Host targets (`build`, `up`, `shell`, `down`) and container targets (`smoke`, `test`) |
 | `tests/env/test_toolchain.py` | Smoke tests: ROS 2, ROS packages, MuJoCo sim + offscreen render, GPU, Claude CLI |
@@ -197,13 +197,13 @@ git ls-remote origin main    # Expected: one line, same hash as `git rev-parse H
 ### Task 3: Dev image, Compose service, and toolchain smoke tests
 
 **Files:**
-- Create: `tests/env/test_toolchain.py`, `docker/Dockerfile`, `docker-compose.yml`, `Makefile`
+- Create: `tests/env/test_toolchain.py`, `docker/Dockerfile`, `docker/docker-compose.yml`, `Makefile`
 
 **Interfaces:**
 - Consumes: Task 1 repo.
 - Produces:
-  - Image `arm-sandbox:dev`, Compose service `sandbox`, container user `ubuntu`, workdir `/workspace/arm-sandbox`.
-  - Env in the container: `ROS_DISTRO=jazzy`, `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, `MUJOCO_GL` (`egl` by default, overridable via `.env`), `NVIDIA_DRIVER_CAPABILITIES=all`.
+  - Image `arm-sandbox:dev`, Compose service `sandbox`, container user = host user (`$USER`), workdir `/workspace/arm-sandbox`.
+  - Env in the container: `ROS_DISTRO=jazzy`, `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, `MUJOCO_GL` (`egl` by default, overridable via `docker/.env`), `NVIDIA_DRIVER_CAPABILITIES=all`.
   - Make targets: `build`, `up`, `shell`, `down` [host]; `smoke`, `test` [container].
 
 - [ ] **Step 1: Write the failing smoke tests** [container or host]
@@ -223,6 +223,8 @@ import subprocess
 
 import pytest
 
+RERUN_VENV_PYTHON = "/opt/rerun/bin/python"
+
 
 def test_ros_distro_is_jazzy() -> None:
     assert os.environ.get("ROS_DISTRO") == "jazzy"
@@ -230,6 +232,13 @@ def test_ros_distro_is_jazzy() -> None:
 
 def test_rclpy_imports() -> None:
     import rclpy  # noqa: F401  (fails if pip broke the ROS Python environment)
+
+
+def test_ros_python_keeps_numpy_1() -> None:
+    # Jazzy's compiled Python bindings (e.g. pinocchio/eigenpy) are built against NumPy 1.x.
+    import numpy
+
+    assert numpy.__version__.startswith("1."), numpy.__version__
 
 
 @pytest.mark.parametrize(
@@ -295,6 +304,14 @@ def test_rerun_cli_available() -> None:
     assert shutil.which("rerun") is not None
 
 
+def test_rerun_sdk_in_its_own_venv() -> None:
+    # rerun-sdk needs NumPy 2, so it lives in /opt/rerun, away from ROS Python.
+    result = subprocess.run(
+        [RERUN_VENV_PYTHON, "-c", "import rerun"], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_claude_cli_available() -> None:
     assert shutil.which("claude") is not None
 
@@ -322,7 +339,7 @@ Use the newest **MuJoCo 3.x** and the newest `rerun-sdk` in the ARG defaults in 
 
 - [ ] **Step 4: Write `docker/Dockerfile`**
 
-Replace `<MUJOCO_VERSION>` and `<RERUN_VERSION>` with the numbers from Step 3.
+Pins as of 2026-10-01: MuJoCo 3.14.0, rerun-sdk 0.38.1. `rerun-sdk` 0.38 requires NumPy 2, which conflicts with Jazzy's NumPy 1.x bindings, so it gets its own venv (`/opt/rerun`).
 
 ```dockerfile
 # arm-sandbox dev image: ROS 2 Jazzy + MuJoCo + MoveIt 2 + ros2_control + Rerun + Claude Code.
@@ -334,7 +351,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake git curl ca-certificates sudo \
-        python3-pip python3-pytest python3-colcon-common-extensions \
+        python3-pip python3-venv python3-pytest python3-colcon-common-extensions \
         clang-format clang-tidy \
         libgl1 libegl1 libosmesa6 libglfw3 \
         ros-jazzy-rviz2 \
@@ -347,28 +364,49 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Ubuntu 24.04 marks the system Python as externally managed (PEP 668). ROS 2 runs on the
-# system Python, so pip installs go there too (a venv would be invisible to ROS nodes).
-# numpy<2: Jazzy's apt packages are built against NumPy 1.x.
+# system Python, so packages ROS nodes import go there too (a venv would be invisible to them).
+# numpy<2: Jazzy's compiled Python bindings (e.g. pinocchio/eigenpy) are built against NumPy 1.x.
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
-ARG MUJOCO_VERSION=<MUJOCO_VERSION>
-ARG RERUN_VERSION=<RERUN_VERSION>
-RUN pip install --no-cache-dir \
-        "mujoco==${MUJOCO_VERSION}" \
-        "rerun-sdk==${RERUN_VERSION}" \
-        "numpy<2"
+ARG MUJOCO_VERSION=3.14.0
+RUN pip install --no-cache-dir "mujoco==${MUJOCO_VERSION}" "numpy<2"
+
+# rerun-sdk requires NumPy 2, so it gets its own venv; only its `rerun` CLI (the viewer) goes
+# on PATH. ROS nodes never import it: the viz bridge uses the Rerun C++ SDK (design spec).
+ARG RERUN_VERSION=0.38.1
+RUN python3 -m venv /opt/rerun \
+    && /opt/rerun/bin/pip install --no-cache-dir "rerun-sdk==${RERUN_VERSION}" \
+    && ln -s /opt/rerun/bin/rerun /usr/local/bin/rerun
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
-# The base image ships user `ubuntu` (UID 1000). Use it so files on the bind mount stay
-# owned by the host user, and so the host ~/.claude can be mounted at /home/ubuntu/.claude.
-RUN echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ubuntu \
-    && chmod 0440 /etc/sudoers.d/ubuntu
-USER ubuntu
+# Container user mirrors the host user (name, UID, GID come from docker-compose.yml build
+# args), so files on the bind mount keep the right owner and host ~/.claude mounts at the same
+# home path. The base image's `ubuntu` user holds UID/GID 1000 (the usual host IDs): remove it.
+ARG USERNAME=dev
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN if id -u ubuntu >/dev/null 2>&1; then userdel -r ubuntu; fi
+
+# Create a user matching the host's UID/GID
+RUN groupadd -g ${USER_GID} ${USERNAME} && \
+    useradd -l -u ${USER_UID} -g ${USERNAME} -m -s /bin/bash ${USERNAME} && \
+    usermod -aG sudo ${USERNAME}
+
+# Passwordless sudo: avoids syncing a host password into the container; sudo stays confined
+# to this isolated dev container.
+RUN mkdir -p /etc/sudoers.d && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/${USERNAME} && \
+    chmod 0440 /etc/sudoers.d/${USERNAME}
+
+WORKDIR /workspace
+RUN chown -R ${USERNAME}:${USER_GID} /workspace
+
+USER ${USERNAME}
 
 # Claude Code CLI (native installer, goes to ~/.local/bin). Sessions/config are NOT stored in
-# the image: ~/.claude and ~/.claude.json are bind-mounted from the host (docker-compose.yml).
+# the image: ~/.claude and ~/.claude.json are bind-mounted from the host (docker/docker-compose.yml).
 RUN curl -fsSL https://claude.ai/install.sh | bash
-ENV PATH="/home/ubuntu/.local/bin:${PATH}"
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 
 # Interactive shells get ROS 2 and the workspace overlay (if built).
 RUN echo 'source /opt/ros/jazzy/setup.bash' >> ~/.bashrc \
@@ -378,34 +416,44 @@ WORKDIR /workspace/arm-sandbox
 CMD ["sleep", "infinity"]
 ```
 
-- [ ] **Step 5: Write `docker-compose.yml`**
+- [ ] **Step 5: Write `docker/docker-compose.yml`**
 
 ```yaml
 # Dev environment for arm-sandbox. The `sandbox` service idles (sleep infinity) so VS Code
 # Dev Containers or `make shell` can attach. See design spec "Containers and Dev Environment".
+# Paths are relative to this file (docker/). Local overrides go in docker/.env (gitignored).
+name: arm-sandbox # otherwise the project name defaults to this folder's name, "docker"
+
 services:
   sandbox:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile
+      args:
+        # Container user mirrors the host user. The Makefile exports USER_UID/USER_GID;
+        # VS Code doesn't, so 1000 is the fallback and devcontainer.json's
+        # updateRemoteUserUID corrects it if the host IDs differ.
+        USERNAME: ${USER:?USER must be set}
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
     image: arm-sandbox:dev
     network_mode: host # ROS 2 DDS discovery + Rerun web viewer reachable on host ports
     ipc: host # DDS shared-memory transport
     environment:
       - DISPLAY=${DISPLAY:-:0}
       - NVIDIA_DRIVER_CAPABILITIES=all # graphics (EGL/GL) too, not just CUDA
-      - MUJOCO_GL=${MUJOCO_GL:-egl} # override in .env (e.g. osmesa) if EGL fails on a PC
+      - MUJOCO_GL=${MUJOCO_GL:-egl} # override in docker/.env (e.g. osmesa) if EGL fails on a PC
     volumes:
       # Same container path on every PC: Claude Code keys sessions by working directory.
-      - .:/workspace/arm-sandbox
+      - ..:/workspace/arm-sandbox
       # X11 for the native MuJoCo viewer and RViz2 (WSLg exposes it here too).
       - /tmp/.X11-unix:/tmp/.X11-unix
       # Claude Code sessions, memory and login live on the host, not in the container.
-      - ${HOME}/.claude:/home/ubuntu/.claude
-      - ${HOME}/.claude.json:/home/ubuntu/.claude.json
+      - ${HOME}/.claude:/home/${USER}/.claude
+      - ${HOME}/.claude.json:/home/${USER}/.claude.json
       # git identity and SSH keys for push (read-only).
-      - ${HOME}/.gitconfig:/home/ubuntu/.gitconfig:ro
-      - ${HOME}/.ssh:/home/ubuntu/.ssh:ro
+      - ${HOME}/.gitconfig:/home/${USER}/.gitconfig:ro
+      - ${HOME}/.ssh:/home/${USER}/.ssh:ro
     deploy:
       resources:
         reservations:
@@ -418,10 +466,13 @@ services:
 - [ ] **Step 6: Write `Makefile`** (recipe lines must start with a **tab**)
 
 ```make
-# Host targets (need Docker):        build, up, shell, down
+# Host targets (need Docker):          build, up, shell, down
 # Container targets (in dev container): smoke, test
 SHELL := /bin/bash
-COMPOSE := docker compose
+COMPOSE := docker compose -f docker/docker-compose.yml
+# The container user mirrors the host user (docker/docker-compose.yml build args).
+export USER_UID := $(shell id -u)
+export USER_GID := $(shell id -g)
 ROS_SETUP := source /opt/ros/jazzy/setup.bash
 
 .PHONY: build up shell down smoke test
@@ -453,7 +504,7 @@ If a bind-mount source file is missing, Docker creates a **directory** in its pl
 ```bash
 mkdir -p ~/.claude ~/.ssh
 touch ~/.claude.json ~/.gitconfig
-id -u   # Expected: 1000. If not, see Task 4 (VS Code remaps the UID automatically).
+id -u && echo "$USER"   # the container user is created with this UID and name
 ```
 
 - [ ] **Step 8: Build and start** [host]
@@ -476,7 +527,7 @@ Expected: all pass (`test_gpu_visible` passes on a GPU PC).
 If `test_mujoco_offscreen_render` fails with an EGL error (a known risk on WSL2, see the spec's Risks table), switch to the CPU fallback and re-run:
 
 ```bash
-echo "MUJOCO_GL=osmesa" > .env
+echo "MUJOCO_GL=osmesa" > docker/.env
 make up                              # recreates the container with the new env
 docker compose exec sandbox make smoke   # Expected: all pass
 ```
@@ -495,7 +546,7 @@ Expected: an empty MuJoCo viewer window opens on your desktop. Close it.
 - [ ] **Step 11: Commit**
 
 ```bash
-git add docker/Dockerfile docker-compose.yml Makefile tests/env/test_toolchain.py
+git add docker/Dockerfile docker/docker-compose.yml Makefile tests/env/test_toolchain.py
 git commit -m "feat(env): dev image, compose service and toolchain smoke tests (MUJOCO_GL=<backend that worked>)"
 git push
 ```
@@ -506,20 +557,23 @@ git push
 - Create: `.devcontainer/devcontainer.json`
 
 **Interfaces:**
-- Consumes: Compose service `sandbox` and user `ubuntu` (Task 3).
-- Produces: "Reopen in Container" opens `/workspace/arm-sandbox` as `ubuntu`, with the Claude Code extension and CLI available. This is the entry point used in Part 3.
+- Consumes: Compose service `sandbox` and the host-mirroring user (Task 3).
+- Produces: "Reopen in Container" opens `/workspace/arm-sandbox` as your host user, with the Claude Code extension and CLI available. This is the entry point used in Part 3.
 
 - [ ] **Step 1: Write `.devcontainer/devcontainer.json`**
 
 ```jsonc
 {
   "name": "arm-sandbox",
-  "dockerComposeFile": "../docker-compose.yml",
+  "dockerComposeFile": "../docker/docker-compose.yml",
   "service": "sandbox",
   // Must stay identical on every PC: Claude Code keys sessions by this path.
   "workspaceFolder": "/workspace/arm-sandbox",
-  "remoteUser": "ubuntu",
-  // Remaps `ubuntu` to the host UID if it isn't 1000, so bind-mounted files keep the right owner.
+  // The image creates a user named after the host user (docker-compose.yml build arg USERNAME).
+  "remoteUser": "${localEnv:USER}",
+  "containerUser": "${localEnv:USER}",
+  // Compose builds with UID/GID 1000 unless the Makefile exported the real IDs; this remaps the
+  // user to the host UID/GID when they differ, so bind-mounted files keep the right owner.
   "updateRemoteUserUID": true,
   "shutdownAction": "stopCompose",
   "customizations": {
@@ -550,7 +604,8 @@ Expected: VS Code reconnects. The bottom-left shows `Dev Container: arm-sandbox`
 
 ```bash
 pwd                 # Expected: /workspace/arm-sandbox
-whoami              # Expected: ubuntu
+whoami              # Expected: your host user name
+id -u               # Expected: same as `id -u` on the host
 claude --version    # Expected: a version string
 ls ~/.claude/projects | head   # Expected: the host's project folders (e.g. -workspace). The mount works
 make smoke          # Expected: all pass
@@ -612,7 +667,7 @@ make test    # colcon build + colcon test
 - [ ] **Step 4: `docs/PROJECT_STRUCTURE.md`** — in the Project Tree add these lines in alphabetical position under `arm-sandbox/`:
 
 ```
-├── docker-compose.yml               # `sandbox` dev service (GPU, host network, X11, ~/.claude mount)
+├── docker/docker-compose.yml        # `sandbox` dev service (GPU, host network, X11, ~/.claude mount)
 ├── tests/env/                       # toolchain smoke tests (make smoke)
 ```
 
@@ -638,7 +693,7 @@ Replace the Commands table with:
 - [ ] **Step 5: Design spec, "Containers and Dev Environment"** — replace the `docker-compose.yml` bullet with:
 
 ```markdown
-- `docker-compose.yml`, service `sandbox`: GPU reservation, `network_mode: host`, `ipc: host`, X11 socket mount (works for WSLg and native Linux), repo mounted at `/workspace/arm-sandbox` on every PC, host `~/.claude` + `~/.claude.json` mounted (Claude Code sessions persist and move between PCs), and an idle `sleep infinity` command. The VS Code dev container attaches to it as user `ubuntu`.
+- `docker/docker-compose.yml` (project name `arm-sandbox`), service `sandbox`: GPU reservation, `network_mode: host`, `ipc: host`, X11 socket mount (works for WSLg and native Linux), repo mounted at `/workspace/arm-sandbox` on every PC, host `~/.claude` + `~/.claude.json` mounted (Claude Code sessions persist and move between PCs), and an idle `sleep infinity` command. The container user mirrors the host user (same name, UID, GID via build args; the base image's `ubuntu` user is removed), with passwordless sudo. The VS Code dev container attaches to it as that user.
 ```
 
 - [ ] **Step 6: Check, then commit**
@@ -704,7 +759,7 @@ docker --version && docker compose version     # Docker Engine (or Docker Deskto
 docker run --rm --gpus all ubuntu:24.04 nvidia-smi -L   # Expected: GPU listed (NVIDIA driver + Container Toolkit OK)
 git --version && gh auth status                # git + GitHub CLI logged in (SSH)
 code --version                                 # VS Code, plus the "Dev Containers" extension installed
-id -u                                          # 1000 expected. Other values are handled by updateRemoteUserUID
+id -u                                          # any value works: the Makefile passes it as a build arg, and VS Code remaps via updateRemoteUserUID
 mkdir -p ~/.claude ~/.ssh && touch ~/.claude.json ~/.gitconfig
 git config --global user.name >/dev/null || git config --global user.name "Roberto Cai"
 ```
@@ -737,7 +792,7 @@ Command Palette → **Dev Containers: Reopen in Container**. The first build tak
 - [ ] **Step 5: Verify the environment** [container]
 
 ```bash
-make smoke   # Expected: all pass. If the offscreen render fails: echo "MUJOCO_GL=osmesa" > .env, then rebuild the container
+make smoke   # Expected: all pass. If the offscreen render fails: echo "MUJOCO_GL=osmesa" > docker/.env, then rebuild the container
 ```
 
 - [ ] **Step 6: Resume the session** [container]
@@ -903,7 +958,7 @@ git push
 - Test: `tests/env/test_rerun_web.py`
 
 **Interfaces:**
-- Consumes: `rerun-sdk` from the image (Task 3).
+- Consumes: `rerun` CLI and the `/opt/rerun` venv with `rerun-sdk` from the image (Task 3).
 - Produces: confirmed defaults that Plan 02's `arm_sandbox_viz` relies on: web viewer on **port 9090**, gRPC on **port 9876**, started with `rerun --serve-web`. If the pinned version uses different ports or flags, put the real ones in the test constants and in the design spec's Visualization section.
 
 - [ ] **Step 1: Write the failing test** [container]
@@ -924,6 +979,11 @@ import pytest
 
 WEB_VIEWER_URL = "http://localhost:9090"
 STARTUP_TIMEOUT_S = 30.0
+RERUN_VENV_PYTHON = "/opt/rerun/bin/python"
+LOG_ONE_POINT = (
+    "import rerun as rr; rr.init('arm_sandbox_smoke'); rr.connect_grpc(); "
+    "rr.log('smoke/origin', rr.Points3D([[0, 0, 0]])); rr.disconnect()"
+)
 
 
 def wait_for_http(url: str, timeout_s: float) -> bool:
@@ -951,27 +1011,24 @@ def rerun_server():
 
 
 def test_web_viewer_serves_and_accepts_data(rerun_server: subprocess.Popen) -> None:
-    import rerun as rr
-
     assert wait_for_http(WEB_VIEWER_URL, STARTUP_TIMEOUT_S), "web viewer did not come up"
-    rr.init("arm_sandbox_smoke")
-    rr.connect_grpc()  # default: the local gRPC server started by --serve-web
-    rr.log("smoke/origin", rr.Points3D([[0.0, 0.0, 0.0]]))
-    rr.disconnect()
+    # rerun-sdk lives in its own venv (it needs NumPy 2; ROS Python stays on NumPy 1.x).
+    result = subprocess.run([RERUN_VENV_PYTHON, "-c", LOG_ONE_POINT], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
     assert rerun_server.poll() is None, "rerun server exited while receiving data"
 ```
 
 - [ ] **Step 2: Run it**
 
 Run: `python3 -m pytest -q tests/env/test_rerun_web.py`
-Expected: PASS if the pinned version uses these defaults. If it fails, run `rerun --help | grep -iE "serve|port"` and `python3 -c "import rerun as rr; help(rr.connect_grpc)"`. Change the URL, flag, or call in the test to the documented ones, then re-run until it passes. This test defines the contract, so it's expected to change if the defaults differ.
+Expected: PASS if the pinned version uses these defaults. If it fails, run `rerun --help | grep -iE "serve|port"` and `/opt/rerun/bin/python -c "import rerun as rr; help(rr.connect_grpc)"`. Change the URL, flag, or call in the test to the documented ones, then re-run until it passes. This test defines the contract, so it's expected to change if the defaults differ.
 
 - [ ] **Step 3: Check it from the host browser**
 
 Start `rerun --serve-web` in the container, and in another container terminal run:
 
 ```bash
-python3 -c "import rerun as rr; rr.init('arm_sandbox_smoke'); rr.connect_grpc(); rr.log('smoke/origin', rr.Points3D([[0,0,0]], radii=0.05))"
+/opt/rerun/bin/python -c "import rerun as rr; rr.init('arm_sandbox_smoke'); rr.connect_grpc(); rr.log('smoke/origin', rr.Points3D([[0,0,0]], radii=0.05))"
 ```
 
 Open `http://localhost:9090` in the host browser. Expected: the viewer loads and shows one point at the origin. Stop the server with Ctrl+C.
@@ -1002,7 +1059,7 @@ A timeboxed investigation (max 1 day) whose deliverable is a **recorded decision
 sudo apt-get update && apt-cache policy ros-jazzy-mujoco-ros2-control
 ```
 
-Note whether a candidate version exists.
+Note the candidate version. (When this plan was written, `ros-jazzy-mujoco-ros2-control`, `-plugins`, `-msgs`, `-demos` and `ros-jazzy-mujoco-vendor` were all in the Jazzy apt repo. If so, `sudo apt-get install -y ros-jazzy-mujoco-ros2-control ros-jazzy-mujoco-ros2-control-demos` and skip Step 2's source build.)
 
 - [ ] **Step 2: Build it from source in a scratch workspace** (outside the repo)
 

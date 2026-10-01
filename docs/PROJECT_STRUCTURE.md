@@ -35,14 +35,18 @@
 arm-sandbox/
 ├── CLAUDE.md
 ├── README.md
-├── Makefile                         # build / sim / test / lint shortcuts
+├── Makefile                         # host: build/up/shell/down; container: smoke/test
 ├── .devcontainer/                   # VS Code devcontainer
 ├── .github/workflows/               # CI: build + headless tests
 ├── docker/
-│   └── Dockerfile                   # ROS 2 Jazzy + MuJoCo + MoveIt 2 + Rerun
+│   ├── Dockerfile                   # ROS 2 Jazzy + MuJoCo + MoveIt 2 + Rerun; user mirrors the host user
+│   └── docker-compose.yml           # `sandbox` dev service (GPU, host network, X11, ~/.claude mount)
 ├── docs/
 │   ├── REQUIREMENTS.md              # requirements, decisions log, milestones
-│   └── PROJECT_STRUCTURE.md         # this file
+│   ├── PROJECT_STRUCTURE.md         # this file
+│   ├── specs/                       # design specs
+│   └── plan/                        # implementation plans (one per milestone group)
+├── tests/env/                       # toolchain smoke tests (make smoke)
 └── src/                             # colcon workspace
     ├── arm_sandbox_description/     # per-robot models + config
     │   └── panda/
@@ -142,14 +146,17 @@ description ◀── read by all (via robot.yaml / URDF), depends on nothing
 
 ---
 
-## Commands (planned)
+## Commands
 
-| Command        | Description                                                     |
-| -------------- | --------------------------------------------------------------- |
-| `make build`   | Build the Docker image                                          |
-| `make sim`     | `ros2 launch arm_sandbox_bringup sim.launch.py robot:=panda`    |
-| `make test`    | `colcon build` + `colcon test` in the container                 |
-| `make lint`    | clang-format, clang-tidy, ruff                                  |
+| Command        | Where     | Description                                   |
+| -------------- | --------- | --------------------------------------------- |
+| `make build`   | host      | Build the `arm-sandbox:dev` image             |
+| `make up/down` | host      | Start / stop the `sandbox` container          |
+| `make shell`   | host      | Shell into the running container              |
+| `make smoke`   | container | Toolchain smoke tests (`tests/env/`)          |
+| `make test`    | container | `colcon build` + `colcon test`                |
+
+`make sim` and `make lint` are added by later plans.
 
 ---
 
