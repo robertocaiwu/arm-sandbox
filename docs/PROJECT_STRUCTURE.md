@@ -36,11 +36,14 @@ arm-sandbox/
 ├── CLAUDE.md
 ├── README.md
 ├── Makefile                         # host: build/up/shell/down; container: smoke/test
-├── .devcontainer/                   # VS Code devcontainer
+├── .devcontainer/
+│   ├── gpu/devcontainer.json        # NVIDIA GPU PC (base + GPU compose override)
+│   └── cpu/devcontainer.json        # any other PC (base compose only)
 ├── .github/workflows/               # CI: build + headless tests
 ├── docker/
 │   ├── Dockerfile                   # runs scripts/install_deps.sh; user mirrors the host user
-│   └── docker-compose.yml           # `sandbox` dev service (GPU, host network, X11, ~/.claude mount)
+│   ├── docker-compose.yml           # `sandbox` dev service, CPU-only (host network, X11, ~/.claude mount)
+│   └── docker-compose.gpu.yml       # NVIDIA GPU override (added by the Makefile when detected)
 ├── docs/
 │   ├── REQUIREMENTS.md              # requirements, decisions log, milestones
 │   ├── PROJECT_STRUCTURE.md         # this file

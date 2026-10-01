@@ -43,7 +43,8 @@ Every step is tagged:
 | `scripts/install_deps.sh` | All dependencies for Ubuntu 22.04 (ROS 2 Humble apt packages, MuJoCo pip, Rerun venv). Used natively and by the Dockerfile |
 | `docker/Dockerfile` | The single dev image: runs `install_deps.sh`, creates the host-mirroring user, installs the Claude Code CLI |
 | `docker/docker-compose.yml` | `sandbox` service (project `arm-sandbox`): GPU, host network, X11, mounts (repo, `~/.claude`, git/ssh config) |
-| `.devcontainer/devcontainer.json` | VS Code attaches to the `sandbox` service |
+| `.devcontainer/{gpu,cpu}/devcontainer.json` | VS Code attaches to the `sandbox` service, with or without the GPU override |
+| `docker/docker-compose.gpu.yml` | NVIDIA GPU override (reservation + driver capabilities) |
 | `Makefile` | Host targets (`build`, `up`, `shell`, `down`) and container targets (`smoke`, `test`) |
 | `tests/env/test_toolchain.py` | Smoke tests: ROS 2, ROS packages, MuJoCo sim + offscreen render, GPU, Claude CLI |
 | `tests/env/test_rerun_web.py` | Smoke test: Rerun web viewer serves and accepts data |
@@ -200,7 +201,7 @@ git ls-remote origin main    # Expected: one line, same hash as `git rev-parse H
 ### Task 3: Dev image, Compose service, and toolchain smoke tests
 
 **Files:**
-- Create: `tests/env/test_toolchain.py`, `scripts/install_deps.sh`, `docker/Dockerfile`, `docker/docker-compose.yml`, `Makefile`
+- Create: `tests/env/test_toolchain.py`, `scripts/install_deps.sh`, `docker/Dockerfile`, `docker/docker-compose.yml`, `docker/docker-compose.gpu.yml`, `Makefile`
 
 **Interfaces:**
 - Consumes: Task 1 repo.
@@ -548,6 +549,8 @@ CMD ["sleep", "infinity"]
 # Dev environment for arm-sandbox. The `sandbox` service idles (sleep infinity) so VS Code
 # Dev Containers or `make shell` can attach. See design spec "Containers and Dev Environment".
 # Paths are relative to this file (docker/). Local overrides go in docker/.env (gitignored).
+# CPU-only by default (works on any laptop). NVIDIA GPU: add docker-compose.gpu.yml on top
+# (the Makefile does it automatically; VS Code: pick the "GPU" dev container config).
 name: arm-sandbox # otherwise the project name defaults to this folder's name, "docker"
 
 services:
@@ -568,7 +571,7 @@ services:
     ipc: host # DDS shared-memory transport
     environment:
       - DISPLAY=${DISPLAY:-:0}
-      - NVIDIA_DRIVER_CAPABILITIES=all # graphics (EGL/GL) too, not just CUDA
+      # EGL renders on the NVIDIA GPU when present, otherwise on the CPU through Mesa (llvmpipe).
       - MUJOCO_GL=${MUJOCO_GL:-egl} # override in docker/.env (e.g. osmesa) if EGL fails on a PC
     volumes:
       # Same container path on every PC: Claude Code keys sessions by working directory.
@@ -581,6 +584,18 @@ services:
       # git identity and SSH keys for push (read-only).
       - ${HOME}/.gitconfig:/home/${USER}/.gitconfig:ro
       - ${HOME}/.ssh:/home/${USER}/.ssh:ro
+```
+
+- [ ] **Step 5b: Write `docker/docker-compose.gpu.yml`** (NVIDIA override; the base file is CPU-only so it runs on any PC)
+
+```yaml
+# NVIDIA GPU override, merged on top of docker-compose.yml on hosts with the NVIDIA Container
+# Toolkit. The Makefile adds it automatically (GPU=auto); VS Code uses it via .devcontainer/gpu/.
+# Without it, the container runs CPU-only (MuJoCo renders through Mesa llvmpipe).
+services:
+  sandbox:
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all # graphics (EGL/GL) too, not just CUDA
     deploy:
       resources:
         reservations:
@@ -596,7 +611,16 @@ services:
 # Host targets (need Docker):          build, up, shell, down
 # Container targets (in dev container): smoke, test
 SHELL := /bin/bash
-COMPOSE := docker compose -f docker/docker-compose.yml
+# GPU=auto (default) adds the NVIDIA override when Docker has the nvidia runtime.
+# Force it with `make up GPU=1` or `make up GPU=0`. Recursive (=) so `docker info` only runs
+# for host targets, never inside the container.
+GPU ?= auto
+ifeq ($(GPU),auto)
+  GPU_ENABLED = $(shell docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q nvidia && echo 1)
+else
+  GPU_ENABLED = $(filter 1,$(GPU))
+endif
+COMPOSE = docker compose -f docker/docker-compose.yml $(if $(GPU_ENABLED),-f docker/docker-compose.gpu.yml)
 # The container user mirrors the host user (docker/docker-compose.yml build args).
 export USER_UID := $(shell id -u)
 export USER_GID := $(shell id -g)
@@ -675,7 +699,7 @@ Expected: an empty MuJoCo viewer window opens on your desktop. Close it.
 - [ ] **Step 11: Commit**
 
 ```bash
-git add scripts/install_deps.sh docker/Dockerfile docker/docker-compose.yml Makefile tests/env/test_toolchain.py
+git add scripts/install_deps.sh docker/Dockerfile docker/docker-compose.yml docker/docker-compose.gpu.yml Makefile tests/env/test_toolchain.py
 git commit -m "feat(env): dev image, compose service and toolchain smoke tests (MUJOCO_GL=<backend that worked>)"
 git push
 ```
@@ -683,18 +707,21 @@ git push
 ### Task 4: VS Code dev container with Claude Code
 
 **Files:**
-- Create: `.devcontainer/devcontainer.json`
+- Create: `.devcontainer/gpu/devcontainer.json`, `.devcontainer/cpu/devcontainer.json`
 
 **Interfaces:**
 - Consumes: Compose service `sandbox` and the host-mirroring user (Task 3).
 - Produces: "Reopen in Container" opens `/workspace/arm-sandbox` as your host user, with the Claude Code extension and CLI available. This is the entry point used in Part 3.
 
-- [ ] **Step 1: Write `.devcontainer/devcontainer.json`**
+- [ ] **Step 1: Write `.devcontainer/gpu/devcontainer.json`**
 
 ```jsonc
+// VS Code lists both configs on "Reopen in Container": pick GPU on a PC with an NVIDIA GPU and
+// the NVIDIA Container Toolkit, CPU anywhere else. Keep the two files identical apart from
+// "name" and "dockerComposeFile" (VS Code can't choose compose files conditionally).
 {
-  "name": "arm-sandbox",
-  "dockerComposeFile": "../docker/docker-compose.yml",
+  "name": "arm-sandbox (GPU)",
+  "dockerComposeFile": ["../../docker/docker-compose.yml", "../../docker/docker-compose.gpu.yml"],
   "service": "sandbox",
   // Must stay identical on every PC: Claude Code keys sessions by this path.
   "workspaceFolder": "/workspace/arm-sandbox",
@@ -719,6 +746,13 @@ git push
 }
 ```
 
+Then copy it to `.devcontainer/cpu/devcontainer.json` and change only two lines:
+
+```jsonc
+  "name": "arm-sandbox (CPU)",
+  "dockerComposeFile": ["../../docker/docker-compose.yml"],
+```
+
 - [ ] **Step 2: Open it** [host]
 
 ```bash
@@ -726,7 +760,7 @@ make down   # free the container started in Task 3
 code <arm-sandbox folder>
 ```
 
-In VS Code: Command Palette → **Dev Containers: Reopen in Container**.
+In VS Code: Command Palette → **Dev Containers: Reopen in Container**, then pick **arm-sandbox (GPU)** (or **(CPU)** on a PC without an NVIDIA GPU).
 Expected: VS Code reconnects. The bottom-left shows `Dev Container: arm-sandbox`.
 
 - [ ] **Step 3: Verify inside the dev container** [container]
@@ -743,7 +777,7 @@ make smoke          # Expected: all pass
 - [ ] **Step 4: Commit**
 
 ```bash
-git add .devcontainer/devcontainer.json
+git add .devcontainer/
 git commit -m "feat(env): VS Code dev container attached to the sandbox service"
 git push
 ```

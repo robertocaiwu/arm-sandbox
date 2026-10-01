@@ -1,0 +1,14 @@
+# NVIDIA GPU override, merged on top of docker-compose.yml on hosts with the NVIDIA Container
+# Toolkit. The Makefile adds it automatically (GPU=auto); VS Code uses it via .devcontainer/gpu/.
+# Without it, the container runs CPU-only (MuJoCo renders through Mesa llvmpipe).
+services:
+  sandbox:
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all # graphics (EGL/GL) too, not just CUDA
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

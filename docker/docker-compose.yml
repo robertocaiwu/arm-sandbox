@@ -1,6 +1,8 @@
 # Dev environment for arm-sandbox. The `sandbox` service idles (sleep infinity) so VS Code
 # Dev Containers or `make shell` can attach. See design spec "Containers and Dev Environment".
 # Paths are relative to this file (docker/). Local overrides go in docker/.env (gitignored).
+# CPU-only by default (works on any laptop). NVIDIA GPU: add docker-compose.gpu.yml on top
+# (the Makefile does it automatically; VS Code: pick the "GPU" dev container config).
 name: arm-sandbox # otherwise the project name defaults to this folder's name, "docker"
 
 services:
@@ -21,7 +23,7 @@ services:
     ipc: host # DDS shared-memory transport
     environment:
       - DISPLAY=${DISPLAY:-:0}
-      - NVIDIA_DRIVER_CAPABILITIES=all # graphics (EGL/GL) too, not just CUDA
+      # EGL renders on the NVIDIA GPU when present, otherwise on the CPU through Mesa (llvmpipe).
       - MUJOCO_GL=${MUJOCO_GL:-egl} # override in docker/.env (e.g. osmesa) if EGL fails on a PC
     volumes:
       # Same container path on every PC: Claude Code keys sessions by working directory.
@@ -34,10 +36,3 @@ services:
       # git identity and SSH keys for push (read-only).
       - ${HOME}/.gitconfig:/home/${USER}/.gitconfig:ro
       - ${HOME}/.ssh:/home/${USER}/.ssh:ro
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]

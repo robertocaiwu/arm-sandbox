@@ -123,7 +123,7 @@ Reproducible experiments, containerized environment, tests, CI.
 
 ## 4. Non-Functional Requirements
 
-- **NFR-1 Hardware budget.** Must run on the local workstation: **RTX 3070, 8 GB VRAM, WSL2**. That's plenty for Phase A. For Phase B, everything runs locally by default (small VLAs such as SmolVLA ~0.45B). Renting cloud GPUs is allowed only for occasional heavy jobs (e.g. a larger VLA fine-tune), and nothing may require it.
+- **NFR-1 Hardware budget.** Must run on the local workstation: **RTX 3070, 8 GB VRAM, WSL2**. Phase A must also run on a PC without an NVIDIA GPU (CPU rendering), for development on a laptop. That's plenty for Phase A. For Phase B, everything runs locally by default (small VLAs such as SmolVLA ~0.45B). Renting cloud GPUs is allowed only for occasional heavy jobs (e.g. a larger VLA fine-tune), and nothing may require it.
 - **NFR-2 Containerized.** One Docker image (ROS 2 + MuJoCo + dev tools) with NVIDIA GPU passthrough, plus a VS Code devcontainer, following the `apps/amr-sim-lab` pattern. Self-contained: no dependency on the `ai-station` image.
 - **NFR-3 Reproducible.** Pinned dependencies, seeds, and configs saved with every run's outputs.
 - **NFR-4 Tested.** Unit tests for kinematics and control math (FK∘IK round-trip, Jacobian vs finite differences), `launch_testing` integration tests for the ROS 2 bring-up, and smoke tests per task. All tests run headless.
