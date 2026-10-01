@@ -1,16 +1,11 @@
-# Host targets (need Docker):          build, up, shell, down
+# Host targets (need Docker):          build, up, shell, down (each runs select-gpu first)
 # Container targets (in dev container): smoke, test
 SHELL := /bin/bash
-# GPU=auto (default) adds the NVIDIA override when Docker has the nvidia runtime.
-# Force it with `make up GPU=1` or `make up GPU=0`. Recursive (=) so `docker info` only runs
-# for host targets, never inside the container.
+# GPU=auto (default) enables the NVIDIA GPU when Docker has the nvidia runtime; force with
+# `make up GPU=1` or `GPU=0`. scripts/select_gpu.sh writes the per-PC override file.
 GPU ?= auto
-ifeq ($(GPU),auto)
-  GPU_ENABLED = $(shell docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q nvidia && echo 1)
-else
-  GPU_ENABLED = $(filter 1,$(GPU))
-endif
-COMPOSE = docker compose -f docker/docker-compose.yml $(if $(GPU_ENABLED),-f docker/docker-compose.gpu.yml)
+export GPU
+COMPOSE := docker compose -f docker/docker-compose.yml -f docker/docker-compose.local.yml
 # The container user mirrors the host user (docker/docker-compose.yml build args).
 export USER_UID := $(shell id -u)
 export USER_GID := $(shell id -g)
@@ -18,18 +13,21 @@ ROS_SETUP := source /opt/ros/humble/setup.bash
 # ROS 2 uses the distro Python; never a conda/pyenv python3 that may be first on PATH.
 PYTHON := /usr/bin/python3
 
-.PHONY: build up shell down smoke test
+.PHONY: select-gpu build up shell down smoke test
 
-build:
+select-gpu:
+	scripts/select_gpu.sh
+
+build: select-gpu
 	$(COMPOSE) build sandbox
 
-up:
+up: select-gpu
 	$(COMPOSE) up -d sandbox
 
-shell:
+shell: select-gpu
 	$(COMPOSE) exec sandbox bash
 
-down:
+down: select-gpu
 	$(COMPOSE) down
 
 smoke:

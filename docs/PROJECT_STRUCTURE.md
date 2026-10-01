@@ -37,20 +37,20 @@ arm-sandbox/
 ├── README.md
 ├── Makefile                         # host: build/up/shell/down; container: smoke/test
 ├── .devcontainer/
-│   ├── gpu/devcontainer.json        # NVIDIA GPU PC (base + GPU compose override)
-│   └── cpu/devcontainer.json        # any other PC (base compose only)
+│   └── devcontainer.json            # one config; initializeCommand runs scripts/select_gpu.sh
 ├── .github/workflows/               # CI: build + headless tests
 ├── docker/
 │   ├── Dockerfile                   # runs scripts/install_deps.sh; user mirrors the host user
 │   ├── docker-compose.yml           # `sandbox` dev service, CPU-only (host network, X11, ~/.claude mount)
-│   └── docker-compose.gpu.yml       # NVIDIA GPU override (added by the Makefile when detected)
+│   └── docker-compose.local.yml     # generated per PC by select_gpu.sh (GPU or CPU), gitignored
 ├── docs/
 │   ├── REQUIREMENTS.md              # requirements, decisions log, milestones
 │   ├── PROJECT_STRUCTURE.md         # this file
 │   ├── specs/                       # design specs
 │   └── plan/                        # implementation plans (one per milestone group)
 ├── scripts/
-│   └── install_deps.sh              # all dependencies (Ubuntu 22.04); used by the Dockerfile too
+│   ├── install_deps.sh              # all dependencies (Ubuntu 22.04); used by the Dockerfile too
+│   └── select_gpu.sh                # writes docker/docker-compose.local.yml (GPU if available)
 ├── tests/env/                       # toolchain smoke tests (make smoke)
 └── src/                             # colcon workspace
     ├── arm_sandbox_description/     # per-robot models + config

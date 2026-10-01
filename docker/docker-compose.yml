@@ -1,8 +1,8 @@
 # Dev environment for arm-sandbox. The `sandbox` service idles (sleep infinity) so VS Code
 # Dev Containers or `make shell` can attach. See design spec "Containers and Dev Environment".
 # Paths are relative to this file (docker/). Local overrides go in docker/.env (gitignored).
-# CPU-only by default (works on any laptop). NVIDIA GPU: add docker-compose.gpu.yml on top
-# (the Makefile does it automatically; VS Code: pick the "GPU" dev container config).
+# CPU-only by itself, so it runs on any PC. Always used together with docker-compose.local.yml,
+# which scripts/select_gpu.sh generates per PC (adds the NVIDIA GPU when the host has one).
 name: arm-sandbox # otherwise the project name defaults to this folder's name, "docker"
 
 services:

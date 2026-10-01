@@ -1,9 +1,9 @@
-// VS Code lists both configs on "Reopen in Container": pick GPU on a PC with an NVIDIA GPU and
-// the NVIDIA Container Toolkit, CPU anywhere else. Keep the two files identical apart from
-// "name" and "dockerComposeFile" (VS Code can't choose compose files conditionally).
 {
-  "name": "arm-sandbox (CPU)",
-  "dockerComposeFile": ["../../docker/docker-compose.yml"],
+  "name": "arm-sandbox",
+  // docker-compose.local.yml is generated per PC by initializeCommand (GPU when available,
+  // CPU-only otherwise), so this one config works on every machine.
+  "initializeCommand": "\"${localWorkspaceFolder}/scripts/select_gpu.sh\"",
+  "dockerComposeFile": ["../docker/docker-compose.yml", "../docker/docker-compose.local.yml"],
   "service": "sandbox",
   // Must stay identical on every PC: Claude Code keys sessions by this path.
   "workspaceFolder": "/workspace/arm-sandbox",

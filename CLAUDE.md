@@ -97,9 +97,9 @@ Perception → Task executive (BT) → MoveIt 2 / skills → ros2_control contro
 ```
 arm-sandbox/
   📦 src/          # colcon workspace: arm_sandbox_* ROS 2 packages
-  🐳 docker/       # Dockerfile, docker-compose.yml (CPU) + docker-compose.gpu.yml (NVIDIA override)
-  🛠️ scripts/      # install_deps.sh (all dependencies; also used by the Dockerfile)
-  🐳 .devcontainer/ # gpu/ and cpu/ configs (VS Code asks which on Reopen in Container)
+  🐳 docker/       # Dockerfile, docker-compose.yml (+ generated, gitignored docker-compose.local.yml)
+  🛠️ scripts/      # install_deps.sh (all dependencies; also used by the Dockerfile), select_gpu.sh
+  🐳 .devcontainer/ # one config; initializeCommand runs scripts/select_gpu.sh
   📚 docs/         # REQUIREMENTS.md, PROJECT_STRUCTURE.md, design notes
   🛠️ Makefile      # build / test / run shortcuts
   ⚙️ .github/      # CI workflows
@@ -222,8 +222,8 @@ Host (needs Docker):
 - `make build` - build the `arm-sandbox:dev` image
 - `make up` / `make down` - start / stop the `sandbox` container
 - `make shell` - shell in the running container
-- VS Code: **Dev Containers: Reopen in Container** (preferred) - pick **arm-sandbox (GPU)** on a PC with an NVIDIA GPU, **arm-sandbox (CPU)** anywhere else
-- `make up` adds the GPU override automatically when Docker has the `nvidia` runtime (`GPU=auto`); force with `GPU=1` / `GPU=0`
+- VS Code: **Dev Containers: Reopen in Container** (preferred)
+- GPU vs CPU is automatic: `scripts/select_gpu.sh` (run by the Makefile and by the dev container's `initializeCommand`) writes `docker/docker-compose.local.yml` with the NVIDIA GPU when Docker has the `nvidia` runtime. Force it with `make up GPU=1|0`, or permanently per PC with `GPU=1|0` in `docker/.env`
 - Without an NVIDIA GPU everything still works: MuJoCo renders on the CPU through Mesa (llvmpipe), which is fine for Phase A but too slow for Phase B training
 
 Without Docker (any Ubuntu 22.04 machine or container):
