@@ -1,0 +1,28 @@
+{
+  "name": "arm-sandbox",
+  // docker-compose.local.yml is generated per PC by initializeCommand (GPU when available,
+  // CPU-only otherwise), so this one config works on every machine.
+  "initializeCommand": "\"${localWorkspaceFolder}/scripts/select_gpu.sh\"",
+  "dockerComposeFile": ["../docker/docker-compose.yml", "../docker/docker-compose.local.yml"],
+  "service": "sandbox",
+  // Must stay identical on every PC: Claude Code keys sessions by this path.
+  "workspaceFolder": "/workspace/arm-sandbox",
+  // The image creates a user named after the host user (docker-compose.yml build arg USERNAME).
+  "remoteUser": "${localEnv:USER}",
+  "containerUser": "${localEnv:USER}",
+  // Compose builds with UID/GID 1000 unless the Makefile exported the real IDs; this remaps the
+  // user to the host UID/GID when they differ, so bind-mounted files keep the right owner.
+  "updateRemoteUserUID": true,
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-python.python",
+        "charliermarsh.ruff"
+      ]
+    }
+  }
+}

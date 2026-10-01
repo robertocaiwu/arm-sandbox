@@ -1,0 +1,38 @@
+# Dev environment for arm-sandbox. The `sandbox` service idles (sleep infinity) so VS Code
+# Dev Containers or `make shell` can attach. See design spec "Containers and Dev Environment".
+# Paths are relative to this file (docker/). Local overrides go in docker/.env (gitignored).
+# CPU-only by itself, so it runs on any PC. Always used together with docker-compose.local.yml,
+# which scripts/select_gpu.sh generates per PC (adds the NVIDIA GPU when the host has one).
+name: arm-sandbox # otherwise the project name defaults to this folder's name, "docker"
+
+services:
+  sandbox:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        # Container user mirrors the host user. The Makefile exports USER_UID/USER_GID;
+        # VS Code doesn't, so 1000 is the fallback and devcontainer.json's
+        # updateRemoteUserUID corrects it if the host IDs differ.
+        USERNAME: ${USER:-developer}
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+        BASE_IMAGE: ${BASE_IMAGE:-ros:humble-ros-base} # must be Ubuntu 22.04 based
+    image: arm-sandbox:dev
+    network_mode: host # ROS 2 DDS discovery + Rerun web viewer reachable on host ports
+    ipc: host # DDS shared-memory transport
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      # EGL renders on the NVIDIA GPU when present, otherwise on the CPU through Mesa (llvmpipe).
+      - MUJOCO_GL=${MUJOCO_GL:-egl} # override in docker/.env (e.g. osmesa) if EGL fails on a PC
+    volumes:
+      # Same container path on every PC: Claude Code keys sessions by working directory.
+      - ..:/workspace/arm-sandbox
+      # X11 for the native MuJoCo viewer and RViz2 (WSLg exposes it here too).
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # Claude Code sessions, memory and login live on the host, not in the container.
+      - ${HOME}/.claude:/home/${USER}/.claude
+      - ${HOME}/.claude.json:/home/${USER}/.claude.json
+      # git identity and SSH keys for push (read-only).
+      - ${HOME}/.gitconfig:/home/${USER}/.gitconfig:ro
+      - ${HOME}/.ssh:/home/${USER}/.ssh:ro

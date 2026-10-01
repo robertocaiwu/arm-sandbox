@@ -1,6 +1,6 @@
 # arm-sandbox
 
-A ROS 2 Jazzy + MuJoCo simulation sandbox built around a robot arm (Franka Panda) for learning and showing manipulation skills. Phase A covers applied manipulation (kinematics, control, MoveIt 2, perception, pick-and-place). Phase B covers robot learning (IL, RL, VLA, VLM), compared against the Phase A baseline.
+A ROS 2 Humble + MuJoCo simulation sandbox built around a robot arm (Franka Panda) for learning and showing manipulation skills. Phase A covers applied manipulation (kinematics, control, MoveIt 2, perception, pick-and-place). Phase B covers robot learning (IL, RL, VLA, VLM), compared against the Phase A baseline.
 
 **ALWAYS RESPOND IN ENGLISH**
 
@@ -14,12 +14,12 @@ A ROS 2 Jazzy + MuJoCo simulation sandbox built around a robot arm (Franka Panda
 4. NEVER create files unless they're absolutely necessary for achieving your goal.
 5. ALWAYS prefer editing an existing file to creating a new one.
 6. NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
-7. REQUIREMENTS, DECISIONS (§10) AND MILESTONES ARE IN ./docs/REQUIREMENTS.md. Read it before any design decision
+7. REQUIREMENTS, DECISIONS (§10) AND MILESTONES ARE IN ./docs/REQUIREMENTS.md. DESIGN IS IN ./docs/specs/. IMPLEMENTATION PLANS ARE IN ./docs/plan/. Read them before any design decision
 8. PROJECT STRUCTURE IS IN ./docs/PROJECT_STRUCTURE.md
 
 ## 🏗️ Project Stack
 
-- **ROS 2 Jazzy** (Ubuntu 24.04) - backbone; colcon workspace under `src/`
+- **ROS 2 Humble** (Ubuntu 22.04) - backbone; colcon workspace under `src/`
 - **MuJoCo 3.x** - physics; connected to ROS 2 through `ros2_control` (`mujoco_ros2_control`, or a thin custom hardware interface as fallback)
 - **C++17/20** (default) - controllers, hardware interface, kinematics (Eigen), perception, task executive, viz bridge
 - **Python 3** (where clearly easier) - launch files, eval scripts, Gymnasium wrapper, learning code, VLM planner
@@ -97,8 +97,9 @@ Perception → Task executive (BT) → MoveIt 2 / skills → ros2_control contro
 ```
 arm-sandbox/
   📦 src/          # colcon workspace: arm_sandbox_* ROS 2 packages
-  🐳 docker/       # Dockerfile (ROS 2 Jazzy + MuJoCo + tools)
-  🐳 .devcontainer/
+  🐳 docker/       # Dockerfile, docker-compose.yml (+ generated, gitignored docker-compose.local.yml)
+  🛠️ scripts/      # install_deps.sh (all dependencies; also used by the Dockerfile), select_gpu.sh
+  🐳 .devcontainer/ # one config; initializeCommand runs scripts/select_gpu.sh
   📚 docs/         # REQUIREMENTS.md, PROJECT_STRUCTURE.md, design notes
   🛠️ Makefile      # build / test / run shortcuts
   ⚙️ .github/      # CI workflows
@@ -115,11 +116,11 @@ arm-sandbox/
 - Before starting a new package or milestone
 - Before declaring "done"
 
-Run check (planned):
+Run check (inside the dev container):
 
 ```bash
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
-colcon test && colcon test-result --verbose
+make smoke   # environment
+make test    # colcon build + colcon test
 ```
 
 For anything touching bring-up, also launch the sim headless and confirm it comes up without errors.
@@ -212,14 +213,32 @@ arm_sandbox_kinematics/
   test/test_kinematics.cpp                        # GoogleTest, checked against Pinocchio
 ```
 
-## 🛠️ Development Commands (planned)
+## 🛠️ Development Commands
 
 ### Main commands
 
-- `make build` - build the Docker image
-- `make sim` - launch the sim (`ros2 launch arm_sandbox_bringup sim.launch.py robot:=panda`)
-- `make test` - `colcon build` + `colcon test` inside the container
-- `make lint` - clang-format / clang-tidy / ruff
+Host (needs Docker):
+
+- `make build` - build the `arm-sandbox:dev` image
+- `make up` / `make down` - start / stop the `sandbox` container
+- `make shell` - shell in the running container
+- VS Code: **Dev Containers: Reopen in Container** (preferred)
+- GPU vs CPU is automatic: `scripts/select_gpu.sh` (run by the Makefile and by the dev container's `initializeCommand`) writes `docker/docker-compose.local.yml` with the NVIDIA GPU when Docker has the `nvidia` runtime. Force it with `make up GPU=1|0`, or permanently per PC with `GPU=1|0` in `docker/.env`
+- Without an NVIDIA GPU everything still works: MuJoCo renders on the CPU through Mesa (llvmpipe), which is fine for Phase A but too slow for Phase B training
+
+Without Docker (any Ubuntu 22.04 machine or container):
+
+- `scripts/install_deps.sh` - install all dependencies (uses sudo; safe to re-run). The same script builds the Docker image
+
+Inside the dev container (or after `scripts/install_deps.sh`):
+
+- `make smoke` - toolchain smoke tests (`tests/env/`)
+- `make test` - `colcon build` + `colcon test`
+- `make sim`, `make lint` - added by later plans
+
+The repo is always mounted at `/workspace/arm-sandbox`, and host `~/.claude` is mounted into the container, so Claude Code sessions survive rebuilds and can move between PCs. The container user mirrors the host user (name, UID, GID). Local overrides (e.g. `MUJOCO_GL=osmesa`) go in `docker/.env`.
+
+Python environments: ROS 2 nodes use the system Python with NumPy 1.x (`numpy<2`, required by Humble's compiled bindings). Tools that need NumPy 2 get their own venv: `rerun-sdk` lives in `/opt/rerun` (only its `rerun` CLI is on `PATH`).
 
 ### Development mode
 

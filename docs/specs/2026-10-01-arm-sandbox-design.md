@@ -1,6 +1,6 @@
 # arm-sandbox - Design Spec
 
-ROS 2 Jazzy + MuJoCo sandbox for a Franka Panda arm. Phase A builds an applied-manipulation stack (kinematics, control, MoveIt 2, perception, pick-and-place). Phase B adds robot learning (IL, RL, VLA, VLM) and compares it against Phase A. Portfolio and learning project. Runs locally in Docker on an RTX 3070 (8 GB) under WSL2.
+ROS 2 Humble + MuJoCo sandbox for a Franka Panda arm. Phase A builds an applied-manipulation stack (kinematics, control, MoveIt 2, perception, pick-and-place). Phase B adds robot learning (IL, RL, VLA, VLM) and compares it against Phase A. Portfolio and learning project. Runs locally in Docker on an RTX 3070 (8 GB) under WSL2.
 
 Requirements, IDs (FR-x, NFR-x), the decisions log, and milestones are in [`../REQUIREMENTS.md`](../REQUIREMENTS.md). This spec describes **how** they are met.
 
@@ -8,7 +8,7 @@ Requirements, IDs (FR-x, NFR-x), the decisions log, and milestones are in [`../R
 
 Decisions from the requirements (D1–D12, short form):
 
-- MuJoCo, not Isaac Sim. ROS 2 Jazzy is the backbone.
+- MuJoCo, not Isaac Sim. ROS 2 Humble (Ubuntu 22.04) is the backbone.
 - Applied manipulation first (Phase A), robot learning second (Phase B).
 - One arm (Franka Panda) for now. The design stays robot-agnostic through `ros2_control` and per-robot config.
 - Phase B trains directly on MuJoCo, then deploys and evaluates through ROS 2.
@@ -103,7 +103,7 @@ ROS-free C++17 library with Eigen. It is built from the URDF through `urdfdom`.
 | `osc_controller` | effort | `PoseStamped` target topic | Reach, Cartesian moves (M3) |
 | `cartesian_impedance_controller` | effort | `PoseStamped` + stiffness params | Drawer task, contact (M3) |
 | `joint_impedance_controller` | effort | `JointState` target topic | Phase B policy output |
-| `parallel_gripper_action_controller` (stock) | position | `ParallelGripperCommand` action | Gripper |
+| `gripper_action_controller` (stock, `gripper_controllers`) | position | `control_msgs/GripperCommand` action | Gripper |
 
 - Each custom controller is a thin `controller_interface::ControllerInterface` wrapper around a class in the ROS-free core (`osc.hpp`, `impedance.hpp`). Dynamics come from Pinocchio.
 - Real-time safe: targets go through `realtime_tools::RealtimeThreadSafeBox`. No allocation in `update()`. Gains come from YAML.
@@ -167,8 +167,10 @@ language: "put the red cube in the bin"   # used by Phase B
 
 ## Containers and Dev Environment
 
-- `docker/Dockerfile`: `ros:jazzy` base, plus MoveIt 2, `ros2_control`, MuJoCo (pinned), Pinocchio, BehaviorTree.CPP, the Rerun SDK and CLI, and Python dependencies. Phase B adds a separate stage with PyTorch and LeRobot, so the Phase A image stays lean.
-- `docker-compose.yml`, service `sandbox`: GPU reservation, `network_mode: host`, WSLg mounts (`/tmp/.X11-unix`, `/mnt/wslg`) for the native viewer and RViz2, workspace bind mount, and an idle `dev` command. The VS Code dev container attaches to it.
+- `scripts/install_deps.sh` is the single list of dependencies (ROS 2 Humble, MoveIt 2, `ros2_control`, Pinocchio, BehaviorTree.CPP, MuJoCo pinned via pip, the Rerun CLI). It runs on any Ubuntu 22.04 machine or container, and `docker/Dockerfile` (`ros:humble-ros-base`, overridable with `BASE_IMAGE`) runs it too, then adds the Claude Code CLI. Phase B adds a separate stage with PyTorch and LeRobot, so the Phase A image stays lean.
+- **Two Python worlds.** ROS 2 nodes run on the system Python with NumPy 1.x (`numpy<2`), because Humble's compiled bindings (e.g. pinocchio/eigenpy) are built against it. Tools that need NumPy 2 get their own venv: `rerun-sdk` lives in `/opt/rerun`, and only its `rerun` CLI is on `PATH`. The viz bridge uses the Rerun C++ SDK, so no ROS node imports the Python SDK. Phase B learning code (LeRobot) follows the same rule.
+- `docker/docker-compose.yml` (project name `arm-sandbox`), service `sandbox`: CPU-only by default so it runs on any PC, `network_mode: host`, `ipc: host`, X11 socket mount (works for WSLg and native Linux), repo mounted at `/workspace/arm-sandbox` on every PC, host `~/.claude` + `~/.claude.json` mounted (Claude Code sessions persist and move between PCs), and an idle `sleep infinity` command. The container user mirrors the host user (same name, UID, GID via build args; the base image's `ubuntu` user is removed), with passwordless sudo. The VS Code dev container attaches to it as that user.
+- **GPU is optional.** `scripts/select_gpu.sh` writes the gitignored `docker/docker-compose.local.yml`: the NVIDIA reservation plus `NVIDIA_DRIVER_CAPABILITIES=all` when Docker reports the `nvidia` runtime, otherwise an override that changes nothing (`GPU=auto|1|0`, from the environment or `docker/.env`). The Makefile and the single `.devcontainer/devcontainer.json` (`initializeCommand`) both run it and always use both compose files. Without a GPU, EGL renders on the CPU through Mesa llvmpipe (`libegl1` pulls in `libegl-mesa0` and `libgl1-mesa-dri`), verified with MuJoCo 3.14.0. That's enough for Phase A, but Phase B training needs the GPU PC.
 - Headless runs set `MUJOCO_GL=egl` (or `osmesa` in CI) and `viewer:=false`.
 
 ## Testing
@@ -191,7 +193,7 @@ See [`../PROJECT_STRUCTURE.md`](../PROJECT_STRUCTURE.md) for the full tree. In s
 ```
 arm-sandbox/
   src/arm_sandbox_*/      # colcon packages
-  docker/  docker-compose.yml  .devcontainer/
+  docker/  (Dockerfile, docker-compose.yml)  scripts/  .devcontainer/
   .github/workflows/ci.yml
   Makefile
   docs/  (REQUIREMENTS.md, PROJECT_STRUCTURE.md, specs/)
@@ -202,7 +204,7 @@ arm-sandbox/
 
 | Risk | Mitigation |
 |---|---|
-| `mujoco_ros2_control` immature on Jazzy, or missing cameras/effort | M0 spike. Fallback: own `MujocoSystem` hardware interface |
+| `mujoco_ros2_control` immature on Humble, or missing cameras/effort | M0 spike. Fallback: own `MujocoSystem` hardware interface |
 | URDF and MJCF disagree (frames, limits) | FK agreement test, with `robot.yaml` as the single naming source |
 | GPU / OpenGL in Docker under WSL2 (EGL, WSLg) | Prove it in M0 (native viewer + offscreen camera); OSMesa fallback |
 | 1 kHz lockstep too slow with cameras on | Cameras on their own thread at lower rate. Physics rate configurable (500 Hz fallback) |

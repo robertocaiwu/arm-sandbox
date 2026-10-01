@@ -6,13 +6,13 @@
 
 ## Overview
 
-**arm-sandbox** is a **ROS 2 colcon workspace** for robot-arm manipulation in simulation, built with **ROS 2 Jazzy + MuJoCo + ros2_control + MoveIt 2**, in C++ by default and Python where easier.
+**arm-sandbox** is a **ROS 2 colcon workspace** for robot-arm manipulation in simulation, built with **ROS 2 Humble + MuJoCo + ros2_control + MoveIt 2**, in C++ by default and Python where easier.
 
 ### Stack
 
 | Layer           | Technology                                                       |
 | --------------- | ---------------------------------------------------------------- |
-| Middleware      | ROS 2 Jazzy (Ubuntu 24.04)                                       |
+| Middleware      | ROS 2 Humble (Ubuntu 22.04)                                      |
 | Physics         | MuJoCo 3.x (`mujoco_ros2_control` or custom hardware interface)  |
 | Control         | ros2_control, custom C++ controllers (OSC, impedance)            |
 | Planning        | MoveIt 2, MoveIt Servo                                           |
@@ -35,14 +35,23 @@
 arm-sandbox/
 ├── CLAUDE.md
 ├── README.md
-├── Makefile                         # build / sim / test / lint shortcuts
-├── .devcontainer/                   # VS Code devcontainer
+├── Makefile                         # host: build/up/shell/down; container: smoke/test
+├── .devcontainer/
+│   └── devcontainer.json            # one config; initializeCommand runs scripts/select_gpu.sh
 ├── .github/workflows/               # CI: build + headless tests
 ├── docker/
-│   └── Dockerfile                   # ROS 2 Jazzy + MuJoCo + MoveIt 2 + Rerun
+│   ├── Dockerfile                   # runs scripts/install_deps.sh; user mirrors the host user
+│   ├── docker-compose.yml           # `sandbox` dev service, CPU-only (host network, X11, ~/.claude mount)
+│   └── docker-compose.local.yml     # generated per PC by select_gpu.sh (GPU or CPU), gitignored
 ├── docs/
 │   ├── REQUIREMENTS.md              # requirements, decisions log, milestones
-│   └── PROJECT_STRUCTURE.md         # this file
+│   ├── PROJECT_STRUCTURE.md         # this file
+│   ├── specs/                       # design specs
+│   └── plan/                        # implementation plans (one per milestone group)
+├── scripts/
+│   ├── install_deps.sh              # all dependencies (Ubuntu 22.04); used by the Dockerfile too
+│   └── select_gpu.sh                # writes docker/docker-compose.local.yml (GPU if available)
+├── tests/env/                       # toolchain smoke tests (make smoke)
 └── src/                             # colcon workspace
     ├── arm_sandbox_description/     # per-robot models + config
     │   └── panda/
@@ -142,14 +151,18 @@ description ◀── read by all (via robot.yaml / URDF), depends on nothing
 
 ---
 
-## Commands (planned)
+## Commands
 
-| Command        | Description                                                     |
-| -------------- | --------------------------------------------------------------- |
-| `make build`   | Build the Docker image                                          |
-| `make sim`     | `ros2 launch arm_sandbox_bringup sim.launch.py robot:=panda`    |
-| `make test`    | `colcon build` + `colcon test` in the container                 |
-| `make lint`    | clang-format, clang-tidy, ruff                                  |
+| Command        | Where     | Description                                   |
+| -------------- | --------- | --------------------------------------------- |
+| `make build`   | host      | Build the `arm-sandbox:dev` image             |
+| `make up/down` | host      | Start / stop the `sandbox` container          |
+| `make shell`   | host      | Shell into the running container              |
+| `scripts/install_deps.sh` | host or container (Ubuntu 22.04) | Install all dependencies (sudo) |
+| `make smoke`   | container | Toolchain smoke tests (`tests/env/`)          |
+| `make test`    | container | `colcon build` + `colcon test`                |
+
+`make sim` and `make lint` are added by later plans.
 
 ---
 
