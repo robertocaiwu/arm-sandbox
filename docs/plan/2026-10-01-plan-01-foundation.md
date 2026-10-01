@@ -2,17 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn `arm-sandbox` into a standalone git repository (independent of the `projects` repo), give it a reproducible Docker dev environment that works on any Linux/WSL2 PC with an NVIDIA GPU, move development (including this Claude Code session) to a new PC, and prove the M0 toolchain: ROS 2 Jazzy, MuJoCo with the Panda, offscreen rendering, the Rerun web viewer, and a decision on the sim backend.
+**Goal:** Turn `arm-sandbox` into a standalone git repository (independent of the `projects` repo), give it a reproducible Docker dev environment that works on any Linux/WSL2 PC with an NVIDIA GPU, move development (including this Claude Code session) to a new PC, and prove the M0 toolchain: ROS 2 Humble, MuJoCo with the Panda, offscreen rendering, the Rerun web viewer, and a decision on the sim backend.
 
-**Architecture:** One Docker image (`ros:jazzy-ros-base` plus MuJoCo, MoveIt 2, `ros2_control`, Rerun, and the Claude Code CLI). One Compose service, `sandbox`, idles so VS Code (Dev Containers) or `docker compose exec` can attach. The repo is mounted at the **same container path on every PC**, `/workspace/arm-sandbox`, and host `~/.claude` is mounted into the container. As a result, Claude Code sessions live on the host, survive container rebuilds, and can be moved between PCs by copying one file. Toolchain smoke tests (`tests/env/`) are the acceptance gate for the environment.
+**Architecture:** One Docker image (`ros:humble-ros-base` plus MuJoCo, MoveIt 2, `ros2_control`, Rerun, and the Claude Code CLI). One Compose service, `sandbox`, idles so VS Code (Dev Containers) or `docker compose exec` can attach. The repo is mounted at the **same container path on every PC**, `/workspace/arm-sandbox`, and host `~/.claude` is mounted into the container. As a result, Claude Code sessions live on the host, survive container rebuilds, and can be moved between PCs by copying one file. Toolchain smoke tests (`tests/env/`) are the acceptance gate for the environment.
 
-**Tech Stack:** git, GitHub CLI (`gh`), Docker + Compose v2, NVIDIA Container Toolkit, VS Code Dev Containers, ROS 2 Jazzy, MuJoCo (Python bindings), Rerun (`rerun-sdk`), pytest.
+**Tech Stack:** git, GitHub CLI (`gh`), Docker + Compose v2, NVIDIA Container Toolkit, VS Code Dev Containers, ROS 2 Humble, MuJoCo (Python bindings), Rerun (`rerun-sdk`), pytest.
 
 **Spec:** [`../specs/2026-10-01-arm-sandbox-design.md`](../specs/2026-10-01-arm-sandbox-design.md) (design) and [`../REQUIREMENTS.md`](../REQUIREMENTS.md) (requirements). Read both before starting.
 
 ## Global Constraints
 
-- ROS 2 **Jazzy** (Ubuntu 24.04). MuJoCo **3.x**. (REQUIREMENTS §5, D7)
+- ROS 2 **Humble** (Ubuntu 22.04). MuJoCo **3.x**. (REQUIREMENTS §5, D7, changed from Jazzy because the dev environment is Ubuntu 22.04)
+- **One dependency list:** `scripts/install_deps.sh`. The Dockerfile runs it; never duplicate package lists elsewhere.
+- ROS Python is **`/usr/bin/python3`**, never the first `python3` on PATH (conda in the `projects` dev container).
 - Target hardware: **RTX 3070, 8 GB VRAM, WSL2**. Everything must run locally. (NFR-1)
 - "Fully containerized. Nothing is installed on the host." The only host prerequisites are Docker, the NVIDIA driver + Container Toolkit, VS Code, git, and `gh`. (spec: Decisions)
 - `arm-sandbox` is a **standalone repo**. Never add it to the `projects` repo (no submodule, no `git add` from `projects`), and never reference files outside the repo.
@@ -38,7 +40,8 @@ Every step is tagged:
 | `.gitignore` | Ignore colcon output, eval results, local env, recordings, session bundles |
 | `.gitattributes` | LF line endings everywhere (repo moves between Windows/WSL/Linux PCs) |
 | `LICENSE` | Apache-2.0 (compatible with MuJoCo Menagerie) |
-| `docker/Dockerfile` | The single dev image |
+| `scripts/install_deps.sh` | All dependencies for Ubuntu 22.04 (ROS 2 Humble apt packages, MuJoCo pip, Rerun venv). Used natively and by the Dockerfile |
+| `docker/Dockerfile` | The single dev image: runs `install_deps.sh`, creates the host-mirroring user, installs the Claude Code CLI |
 | `docker/docker-compose.yml` | `sandbox` service (project `arm-sandbox`): GPU, host network, X11, mounts (repo, `~/.claude`, git/ssh config) |
 | `.devcontainer/devcontainer.json` | VS Code attaches to the `sandbox` service |
 | `Makefile` | Host targets (`build`, `up`, `shell`, `down`) and container targets (`smoke`, `test`) |
@@ -197,13 +200,13 @@ git ls-remote origin main    # Expected: one line, same hash as `git rev-parse H
 ### Task 3: Dev image, Compose service, and toolchain smoke tests
 
 **Files:**
-- Create: `tests/env/test_toolchain.py`, `docker/Dockerfile`, `docker/docker-compose.yml`, `Makefile`
+- Create: `tests/env/test_toolchain.py`, `scripts/install_deps.sh`, `docker/Dockerfile`, `docker/docker-compose.yml`, `Makefile`
 
 **Interfaces:**
 - Consumes: Task 1 repo.
 - Produces:
   - Image `arm-sandbox:dev`, Compose service `sandbox`, container user = host user (`$USER`), workdir `/workspace/arm-sandbox`.
-  - Env in the container: `ROS_DISTRO=jazzy`, `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, `MUJOCO_GL` (`egl` by default, overridable via `docker/.env`), `NVIDIA_DRIVER_CAPABILITIES=all`.
+  - Env in the container: `ROS_DISTRO=humble`, `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, `MUJOCO_GL` (`egl` by default, overridable via `docker/.env`), `NVIDIA_DRIVER_CAPABILITIES=all`.
   - Make targets: `build`, `up`, `shell`, `down` [host]; `smoke`, `test` [container].
 
 - [ ] **Step 1: Write the failing smoke tests** [container or host]
@@ -223,11 +226,14 @@ import subprocess
 
 import pytest
 
+# Headless by default; the compose file / docker/.env can override (e.g. osmesa).
+os.environ.setdefault("MUJOCO_GL", "egl")
+
 RERUN_VENV_PYTHON = "/opt/rerun/bin/python"
 
 
-def test_ros_distro_is_jazzy() -> None:
-    assert os.environ.get("ROS_DISTRO") == "jazzy"
+def test_ros_distro_is_humble() -> None:
+    assert os.environ.get("ROS_DISTRO") == "humble"
 
 
 def test_rclpy_imports() -> None:
@@ -235,7 +241,7 @@ def test_rclpy_imports() -> None:
 
 
 def test_ros_python_keeps_numpy_1() -> None:
-    # Jazzy's compiled Python bindings (e.g. pinocchio/eigenpy) are built against NumPy 1.x.
+    # Humble's compiled Python bindings (e.g. pinocchio/eigenpy) are built against NumPy 1.x.
     import numpy
 
     assert numpy.__version__.startswith("1."), numpy.__version__
@@ -247,6 +253,8 @@ def test_ros_python_keeps_numpy_1() -> None:
         "controller_manager",
         "joint_trajectory_controller",
         "moveit_ros_move_group",
+        "moveit_servo",
+        "gripper_controllers",
         "moveit_resources_panda_moveit_config",
         "robot_state_publisher",
         "xacro",
@@ -312,10 +320,6 @@ def test_rerun_sdk_in_its_own_venv() -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_claude_cli_available() -> None:
-    assert shutil.which("claude") is not None
-
-
 def test_gpu_visible() -> None:
     if shutil.which("nvidia-smi") is None:
         pytest.skip("no NVIDIA GPU in this environment (e.g. CI)")
@@ -326,7 +330,7 @@ def test_gpu_visible() -> None:
 - [ ] **Step 2: Run them outside the image to see them fail**
 
 Run: `python3 -m pytest -q tests/env` (in the current workspace container, not the new image)
-Expected: FAIL. At minimum `test_ros_distro_is_jazzy` fails (`None != 'jazzy'`), and `mujoco`/`rclpy` imports fail.
+Expected: FAIL. At minimum `test_ros_distro_is_humble` fails (`None != 'humble'`), and `mujoco`/`rclpy` imports fail.
 
 - [ ] **Step 3: Look up the versions to pin** [container or host, with internet]
 
@@ -337,45 +341,167 @@ python3 -m pip index versions rerun-sdk 2>/dev/null | head -1   # e.g. "rerun-sd
 
 Use the newest **MuJoCo 3.x** and the newest `rerun-sdk` in the ARG defaults in Step 4. Write the exact numbers, not ranges.
 
-- [ ] **Step 4: Write `docker/Dockerfile`**
+- [ ] **Step 4a: Write `scripts/install_deps.sh`** (then `chmod +x scripts/install_deps.sh`)
 
-Pins as of 2026-10-01: MuJoCo 3.14.0, rerun-sdk 0.38.1. `rerun-sdk` 0.38 requires NumPy 2, which conflicts with Jazzy's NumPy 1.x bindings, so it gets its own venv (`/opt/rerun`).
+```bash
+#!/usr/bin/env bash
+# Install everything arm-sandbox needs on Ubuntu 22.04 (Jammy):
+#   - ROS 2 Humble + MoveIt 2 + ros2_control + Pinocchio + BehaviorTree.CPP (apt)
+#   - build/test/lint tools and GL libraries for MuJoCo rendering (apt)
+#   - MuJoCo Python bindings on the system Python (pip)
+#   - Rerun viewer in its own venv (/opt/rerun), `rerun` CLI on PATH
+#
+# Single source of truth for dependencies: docker/Dockerfile runs this script too.
+# Safe to re-run. Privileged steps use sudo when not run as root.
+#
+# Usage:   scripts/install_deps.sh
+# Pins:    MUJOCO_VERSION=x.y.z RERUN_VERSION=x.y.z scripts/install_deps.sh
+set -euo pipefail
 
-```dockerfile
-# arm-sandbox dev image: ROS 2 Jazzy + MuJoCo + MoveIt 2 + ros2_control + Rerun + Claude Code.
-# One image for development, tests and demos (design spec: "Containers and Dev Environment").
-FROM ros:jazzy-ros-base
+readonly ROS_DISTRO_NAME="humble"
+readonly REQUIRED_CODENAME="jammy"
+readonly MUJOCO_VERSION="${MUJOCO_VERSION:-3.14.0}"
+readonly RERUN_VERSION="${RERUN_VERSION:-0.38.1}"
+readonly RERUN_VENV="/opt/rerun"
+# ROS 2 runs on the distro's Python. Never use whichever `python3` comes first on PATH
+# (conda, pyenv, ...): packages installed there are invisible to ROS nodes.
+readonly SYSTEM_PYTHON="/usr/bin/python3"
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-ARG DEBIAN_FRONTEND=noninteractive
+SUDO=()
+if [ "$(id -u)" -ne 0 ]; then
+    SUDO=(sudo)
+fi
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+export DEBIAN_FRONTEND=noninteractive
+
+check_os() {
+    # shellcheck source=/dev/null
+    . /etc/os-release
+    if [ "${VERSION_CODENAME:-}" != "${REQUIRED_CODENAME}" ]; then
+        echo "Error: ROS 2 ${ROS_DISTRO_NAME} needs Ubuntu 22.04 (${REQUIRED_CODENAME}), found ${PRETTY_NAME:-unknown}." >&2
+        exit 1
+    fi
+}
+
+ros_apt_repo_configured() {
+    grep -rqs "packages.ros.org/ros2" /etc/apt/sources.list /etc/apt/sources.list.d/
+}
+
+setup_ros_apt_repo() {
+    if ros_apt_repo_configured; then
+        echo "ROS 2 apt repository already configured."
+        return
+    fi
+
+    echo "Adding the ROS 2 apt repository..."
+    "${SUDO[@]}" apt-get update
+    "${SUDO[@]}" apt-get install -y --no-install-recommends software-properties-common curl ca-certificates
+    "${SUDO[@]}" add-apt-repository -y universe
+
+    # Official method: the ros2-apt-source package installs the repo and its signing key.
+    local release
+    release="$(curl -fsSL https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest \
+        | grep -F '"tag_name"' | awk -F'"' '{print $4}')"
+    if [ -z "${release}" ]; then
+        echo "Error: could not look up the latest ros-apt-source release." >&2
+        exit 1
+    fi
+
+    local deb
+    deb="$(mktemp --suffix=.deb)"
+    curl -fsSL -o "${deb}" \
+        "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${release}/ros2-apt-source_${release}.${REQUIRED_CODENAME}_all.deb"
+    "${SUDO[@]}" dpkg -i "${deb}"
+    rm -f "${deb}"
+}
+
+install_apt_packages() {
+    echo "Installing apt packages..."
+    "${SUDO[@]}" apt-get update
+    "${SUDO[@]}" apt-get install -y --no-install-recommends \
         build-essential cmake git curl ca-certificates sudo \
-        python3-pip python3-venv python3-pytest python3-colcon-common-extensions \
+        python3-pip python3-venv python3-pytest python3-colcon-common-extensions python3-rosdep \
         clang-format clang-tidy \
         libgl1 libegl1 libosmesa6 libglfw3 \
-        ros-jazzy-rviz2 \
-        ros-jazzy-xacro ros-jazzy-robot-state-publisher \
-        ros-jazzy-ros2-control ros-jazzy-ros2-controllers \
-        ros-jazzy-moveit ros-jazzy-moveit-resources-panda-moveit-config \
-        ros-jazzy-pinocchio ros-jazzy-behaviortree-cpp ros-jazzy-vision-msgs \
-        ros-jazzy-ament-cmake-pytest \
-        ros-jazzy-rmw-cyclonedds-cpp \
-    && rm -rf /var/lib/apt/lists/*
+        "ros-${ROS_DISTRO_NAME}-ros-base" \
+        "ros-${ROS_DISTRO_NAME}-rviz2" \
+        "ros-${ROS_DISTRO_NAME}-xacro" \
+        "ros-${ROS_DISTRO_NAME}-robot-state-publisher" \
+        "ros-${ROS_DISTRO_NAME}-ros2-control" \
+        "ros-${ROS_DISTRO_NAME}-ros2-controllers" \
+        "ros-${ROS_DISTRO_NAME}-moveit" \
+        "ros-${ROS_DISTRO_NAME}-moveit-servo" \
+        "ros-${ROS_DISTRO_NAME}-moveit-resources-panda-moveit-config" \
+        "ros-${ROS_DISTRO_NAME}-pinocchio" \
+        "ros-${ROS_DISTRO_NAME}-behaviortree-cpp" \
+        "ros-${ROS_DISTRO_NAME}-vision-msgs" \
+        "ros-${ROS_DISTRO_NAME}-ament-cmake-pytest" \
+        "ros-${ROS_DISTRO_NAME}-rmw-cyclonedds-cpp"
+}
 
-# Ubuntu 24.04 marks the system Python as externally managed (PEP 668). ROS 2 runs on the
-# system Python, so packages ROS nodes import go there too (a venv would be invisible to them).
-# numpy<2: Jazzy's compiled Python bindings (e.g. pinocchio/eigenpy) are built against NumPy 1.x.
-ENV PIP_BREAK_SYSTEM_PACKAGES=1
-ARG MUJOCO_VERSION=3.14.0
-RUN pip install --no-cache-dir "mujoco==${MUJOCO_VERSION}" "numpy<2"
+init_rosdep() {
+    if [ -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
+        return
+    fi
+    "${SUDO[@]}" rosdep init
+}
 
-# rerun-sdk requires NumPy 2, so it gets its own venv; only its `rerun` CLI (the viewer) goes
-# on PATH. ROS nodes never import it: the viz bridge uses the Rerun C++ SDK (design spec).
-ARG RERUN_VERSION=0.38.1
-RUN python3 -m venv /opt/rerun \
-    && /opt/rerun/bin/pip install --no-cache-dir "rerun-sdk==${RERUN_VERSION}" \
-    && ln -s /opt/rerun/bin/rerun /usr/local/bin/rerun
+install_python_packages() {
+    # numpy<2: Humble's compiled Python bindings (e.g. pinocchio/eigenpy) are built against NumPy 1.x.
+    echo "Installing MuJoCo ${MUJOCO_VERSION} for ${SYSTEM_PYTHON}..."
+    "${SUDO[@]}" "${SYSTEM_PYTHON}" -m pip install --no-cache-dir \
+        "mujoco==${MUJOCO_VERSION}" \
+        "numpy<2"
+}
+
+install_rerun() {
+    # rerun-sdk needs NumPy 2, so it lives in its own venv and only its `rerun` CLI (the viewer)
+    # goes on PATH. ROS nodes never import it: the viz bridge uses the Rerun C++ SDK.
+    echo "Installing Rerun ${RERUN_VERSION} into ${RERUN_VENV}..."
+    if [ ! -x "${RERUN_VENV}/bin/python" ]; then
+        "${SUDO[@]}" "${SYSTEM_PYTHON}" -m venv "${RERUN_VENV}"
+    fi
+    "${SUDO[@]}" "${RERUN_VENV}/bin/pip" install --no-cache-dir "rerun-sdk==${RERUN_VERSION}"
+    "${SUDO[@]}" ln -sf "${RERUN_VENV}/bin/rerun" /usr/local/bin/rerun
+}
+
+main() {
+    check_os
+    setup_ros_apt_repo
+    install_apt_packages
+    init_rosdep
+    install_python_packages
+    install_rerun
+
+    cat <<EOF
+
+arm-sandbox dependencies installed. Next steps (as your normal user):
+  rosdep update
+  source /opt/ros/${ROS_DISTRO_NAME}/setup.bash
+  make smoke
+EOF
+}
+
+main "$@"
+```
+
+- [ ] **Step 4: Write `docker/Dockerfile`**
+
+Pins as of 2026-10-01: MuJoCo 3.14.0, rerun-sdk 0.38.1. `rerun-sdk` 0.38 requires NumPy 2, which conflicts with Humble's NumPy 1.x bindings, so it gets its own venv (`/opt/rerun`).
+
+```dockerfile
+# arm-sandbox dev image: ROS 2 Humble + MuJoCo + MoveIt 2 + ros2_control + Rerun + Claude Code.
+# One image for development, tests and demos (design spec: "Containers and Dev Environment").
+# BASE_IMAGE must be Ubuntu 22.04 based; scripts/install_deps.sh adds ROS 2 if it's missing.
+ARG BASE_IMAGE=ros:humble-ros-base
+FROM ${BASE_IMAGE}
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# All dependencies come from one script, shared with non-Docker setups (DRY).
+COPY scripts/install_deps.sh /tmp/install_deps.sh
+RUN /tmp/install_deps.sh \
+    && rm -rf /var/lib/apt/lists/* /tmp/install_deps.sh
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
@@ -409,7 +535,7 @@ RUN curl -fsSL https://claude.ai/install.sh | bash
 ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 
 # Interactive shells get ROS 2 and the workspace overlay (if built).
-RUN echo 'source /opt/ros/jazzy/setup.bash' >> ~/.bashrc \
+RUN echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc \
     && echo '[ -f /workspace/arm-sandbox/install/setup.bash ] && source /workspace/arm-sandbox/install/setup.bash' >> ~/.bashrc
 
 WORKDIR /workspace/arm-sandbox
@@ -433,9 +559,10 @@ services:
         # Container user mirrors the host user. The Makefile exports USER_UID/USER_GID;
         # VS Code doesn't, so 1000 is the fallback and devcontainer.json's
         # updateRemoteUserUID corrects it if the host IDs differ.
-        USERNAME: ${USER:?USER must be set}
+        USERNAME: ${USER:-developer}
         USER_UID: ${USER_UID:-1000}
         USER_GID: ${USER_GID:-1000}
+        BASE_IMAGE: ${BASE_IMAGE:-ros:humble-ros-base} # must be Ubuntu 22.04 based
     image: arm-sandbox:dev
     network_mode: host # ROS 2 DDS discovery + Rerun web viewer reachable on host ports
     ipc: host # DDS shared-memory transport
@@ -473,7 +600,9 @@ COMPOSE := docker compose -f docker/docker-compose.yml
 # The container user mirrors the host user (docker/docker-compose.yml build args).
 export USER_UID := $(shell id -u)
 export USER_GID := $(shell id -g)
-ROS_SETUP := source /opt/ros/jazzy/setup.bash
+ROS_SETUP := source /opt/ros/humble/setup.bash
+# ROS 2 uses the distro Python; never a conda/pyenv python3 that may be first on PATH.
+PYTHON := /usr/bin/python3
 
 .PHONY: build up shell down smoke test
 
@@ -490,7 +619,7 @@ down:
 	$(COMPOSE) down
 
 smoke:
-	$(ROS_SETUP) && python3 -m pytest -q tests/env
+	$(ROS_SETUP) && $(PYTHON) -m pytest -q tests/env
 
 test:
 	$(ROS_SETUP) && colcon build --symlink-install \
@@ -546,7 +675,7 @@ Expected: an empty MuJoCo viewer window opens on your desktop. Close it.
 - [ ] **Step 11: Commit**
 
 ```bash
-git add docker/Dockerfile docker/docker-compose.yml Makefile tests/env/test_toolchain.py
+git add scripts/install_deps.sh docker/Dockerfile docker/docker-compose.yml Makefile tests/env/test_toolchain.py
 git commit -m "feat(env): dev image, compose service and toolchain smoke tests (MUJOCO_GL=<backend that worked>)"
 git push
 ```
@@ -710,6 +839,8 @@ git push
 
 # Part 3 — Move to the New PC (and resume this Claude session)
 
+> **Manual: the user does these steps themselves. Agents executing this plan skip Part 3.**
+
 How it works: Claude Code stores each session as `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`. `<encoded-cwd>` is the working directory with `/` replaced by `-`. This planning session ran with cwd `/workspace` (the `projects` dev container), so it lives at `~/.claude/projects/-workspace/e1241580-0684-4d9c-9572-33d556f294fe.jsonl`. On the new PC, Claude runs in the `arm-sandbox` container at `/workspace/arm-sandbox` (encoded `-workspace-arm-sandbox`), so the file goes into that folder.
 
 Older messages in this session refer to the repo as `/workspace/apps/arm-sandbox` (its location inside the `projects` checkout on this PC). After resuming, the first message tells Claude the repo is now at `/workspace/arm-sandbox`. CLAUDE.md and the docs only use repo-relative paths, so nothing else changes.
@@ -756,7 +887,7 @@ If you continued the conversation in a different session, find its ID with `ls -
 
 ```bash
 docker --version && docker compose version     # Docker Engine (or Docker Desktop + WSL2) and Compose v2
-docker run --rm --gpus all ubuntu:24.04 nvidia-smi -L   # Expected: GPU listed (NVIDIA driver + Container Toolkit OK)
+docker run --rm --gpus all ubuntu:22.04 nvidia-smi -L   # Expected: GPU listed (NVIDIA driver + Container Toolkit OK)
 git --version && gh auth status                # git + GitHub CLI logged in (SSH)
 code --version                                 # VS Code, plus the "Dev Containers" extension installed
 id -u                                          # any value works: the Makefile passes it as a build arg, and VS Code remaps via updateRemoteUserUID
@@ -1056,10 +1187,10 @@ A timeboxed investigation (max 1 day) whose deliverable is a **recorded decision
 - [ ] **Step 1: Check for a binary package** [container]
 
 ```bash
-sudo apt-get update && apt-cache policy ros-jazzy-mujoco-ros2-control
+sudo apt-get update && apt-cache policy ros-humble-mujoco-ros2-control
 ```
 
-Note the candidate version. (When this plan was written, `ros-jazzy-mujoco-ros2-control`, `-plugins`, `-msgs`, `-demos` and `ros-jazzy-mujoco-vendor` were all in the Jazzy apt repo. If so, `sudo apt-get install -y ros-jazzy-mujoco-ros2-control ros-jazzy-mujoco-ros2-control-demos` and skip Step 2's source build.)
+Note the candidate version. (When this plan was written, `ros-humble-mujoco-ros2-control`, `-plugins`, `-msgs`, `-demos` and `ros-humble-mujoco-vendor` were all in the Humble apt repo (`ros-humble-mujoco-ros2-control` 0.1.2). If so, `sudo apt-get install -y ros-humble-mujoco-ros2-control ros-humble-mujoco-ros2-control-demos` and skip Step 2's source build.)
 
 - [ ] **Step 2: Build it from source in a scratch workspace** (outside the repo)
 
@@ -1067,7 +1198,7 @@ Note the candidate version. (When this plan was written, `ros-jazzy-mujoco-ros2-
 mkdir -p ~/spike_ws/src && cd ~/spike_ws/src
 git clone https://github.com/ros-controls/mujoco_ros2_control.git
 cd ~/spike_ws
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/humble/setup.bash
 sudo rosdep init 2>/dev/null || true; rosdep update
 rosdep install --from-paths src --ignore-src -y
 colcon build --symlink-install 2>&1 | tail -20
@@ -1079,7 +1210,7 @@ Expected: build finishes. If it fails, record the error, and that already counts
 
 | Need (design spec) | Supported? | Evidence (file/topic/param) |
 |---|---|---|
-| Builds on Jazzy, and the MuJoCo version it needs is compatible with the image's pin | | |
+| Builds on Humble, and the MuJoCo version it needs is compatible with the image's pin | | |
 | `effort` command interface on arm joints | | |
 | `position` command interface (gripper) | | |
 | Publishes `/clock`; physics stepped in lockstep with the controller update | | |

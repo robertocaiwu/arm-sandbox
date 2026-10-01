@@ -1,38 +1,15 @@
-# arm-sandbox dev image: ROS 2 Jazzy + MuJoCo + MoveIt 2 + ros2_control + Rerun + Claude Code.
+# arm-sandbox dev image: ROS 2 Humble + MuJoCo + MoveIt 2 + ros2_control + Rerun + Claude Code.
 # One image for development, tests and demos (design spec: "Containers and Dev Environment").
-ARG BASE_IMAGE=ros:jazzy-ros-base
+# BASE_IMAGE must be Ubuntu 22.04 based; scripts/install_deps.sh adds ROS 2 if it's missing.
+ARG BASE_IMAGE=ros:humble-ros-base
 FROM ${BASE_IMAGE}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential cmake git curl ca-certificates sudo \
-        python3-pip python3-venv python3-pytest python3-colcon-common-extensions \
-        clang-format clang-tidy \
-        libgl1 libegl1 libosmesa6 libglfw3 \
-        ros-jazzy-rviz2 \
-        ros-jazzy-xacro ros-jazzy-robot-state-publisher \
-        ros-jazzy-ros2-control ros-jazzy-ros2-controllers \
-        ros-jazzy-moveit ros-jazzy-moveit-resources-panda-moveit-config \
-        ros-jazzy-pinocchio ros-jazzy-behaviortree-cpp ros-jazzy-vision-msgs \
-        ros-jazzy-ament-cmake-pytest \
-        ros-jazzy-rmw-cyclonedds-cpp \
-    && rm -rf /var/lib/apt/lists/*
-
-# Ubuntu 24.04 marks the system Python as externally managed (PEP 668). ROS 2 runs on the
-# system Python, so packages ROS nodes import go there too (a venv would be invisible to them).
-# numpy<2: Jazzy's compiled Python bindings (e.g. pinocchio/eigenpy) are built against NumPy 1.x.
-ENV PIP_BREAK_SYSTEM_PACKAGES=1
-ARG MUJOCO_VERSION=3.14.0
-RUN pip install --no-cache-dir "mujoco==${MUJOCO_VERSION}" "numpy<2"
-
-# rerun-sdk requires NumPy 2, so it gets its own venv; only its `rerun` CLI (the viewer) goes
-# on PATH. ROS nodes never import it: the viz bridge uses the Rerun C++ SDK (design spec).
-ARG RERUN_VERSION=0.38.1
-RUN python3 -m venv /opt/rerun \
-    && /opt/rerun/bin/pip install --no-cache-dir "rerun-sdk==${RERUN_VERSION}" \
-    && ln -s /opt/rerun/bin/rerun /usr/local/bin/rerun
+# All dependencies come from one script, shared with non-Docker setups (DRY).
+COPY scripts/install_deps.sh /tmp/install_deps.sh
+RUN /tmp/install_deps.sh \
+    && rm -rf /var/lib/apt/lists/* /tmp/install_deps.sh
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
@@ -66,7 +43,7 @@ RUN curl -fsSL https://claude.ai/install.sh | bash
 ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 
 # Interactive shells get ROS 2 and the workspace overlay (if built).
-RUN echo 'source /opt/ros/jazzy/setup.bash' >> ~/.bashrc \
+RUN echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc \
     && echo '[ -f /workspace/arm-sandbox/install/setup.bash ] && source /workspace/arm-sandbox/install/setup.bash' >> ~/.bashrc
 
 WORKDIR /workspace/arm-sandbox

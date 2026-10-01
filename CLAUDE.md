@@ -1,6 +1,6 @@
 # arm-sandbox
 
-A ROS 2 Jazzy + MuJoCo simulation sandbox built around a robot arm (Franka Panda) for learning and showing manipulation skills. Phase A covers applied manipulation (kinematics, control, MoveIt 2, perception, pick-and-place). Phase B covers robot learning (IL, RL, VLA, VLM), compared against the Phase A baseline.
+A ROS 2 Humble + MuJoCo simulation sandbox built around a robot arm (Franka Panda) for learning and showing manipulation skills. Phase A covers applied manipulation (kinematics, control, MoveIt 2, perception, pick-and-place). Phase B covers robot learning (IL, RL, VLA, VLM), compared against the Phase A baseline.
 
 **ALWAYS RESPOND IN ENGLISH**
 
@@ -19,7 +19,7 @@ A ROS 2 Jazzy + MuJoCo simulation sandbox built around a robot arm (Franka Panda
 
 ## 🏗️ Project Stack
 
-- **ROS 2 Jazzy** (Ubuntu 24.04) - backbone; colcon workspace under `src/`
+- **ROS 2 Humble** (Ubuntu 22.04) - backbone; colcon workspace under `src/`
 - **MuJoCo 3.x** - physics; connected to ROS 2 through `ros2_control` (`mujoco_ros2_control`, or a thin custom hardware interface as fallback)
 - **C++17/20** (default) - controllers, hardware interface, kinematics (Eigen), perception, task executive, viz bridge
 - **Python 3** (where clearly easier) - launch files, eval scripts, Gymnasium wrapper, learning code, VLM planner
@@ -97,7 +97,8 @@ Perception → Task executive (BT) → MoveIt 2 / skills → ros2_control contro
 ```
 arm-sandbox/
   📦 src/          # colcon workspace: arm_sandbox_* ROS 2 packages
-  🐳 docker/       # Dockerfile + docker-compose.yml (ROS 2 Jazzy + MuJoCo + tools)
+  🐳 docker/       # Dockerfile + docker-compose.yml (ROS 2 Humble + MuJoCo + tools)
+  🛠️ scripts/      # install_deps.sh (all dependencies; also used by the Dockerfile)
   🐳 .devcontainer/
   📚 docs/         # REQUIREMENTS.md, PROJECT_STRUCTURE.md, design notes
   🛠️ Makefile      # build / test / run shortcuts
@@ -223,7 +224,11 @@ Host (needs Docker):
 - `make shell` - shell in the running container
 - VS Code: **Dev Containers: Reopen in Container** (preferred)
 
-Inside the dev container:
+Without Docker (any Ubuntu 22.04 machine or container):
+
+- `scripts/install_deps.sh` - install all dependencies (uses sudo; safe to re-run). The same script builds the Docker image
+
+Inside the dev container (or after `scripts/install_deps.sh`):
 
 - `make smoke` - toolchain smoke tests (`tests/env/`)
 - `make test` - `colcon build` + `colcon test`
@@ -231,7 +236,7 @@ Inside the dev container:
 
 The repo is always mounted at `/workspace/arm-sandbox`, and host `~/.claude` is mounted into the container, so Claude Code sessions survive rebuilds and can move between PCs. The container user mirrors the host user (name, UID, GID). Local overrides (e.g. `MUJOCO_GL=osmesa`) go in `docker/.env`.
 
-Python environments: ROS 2 nodes use the system Python with NumPy 1.x (`numpy<2`, required by Jazzy's compiled bindings). Tools that need NumPy 2 get their own venv: `rerun-sdk` lives in `/opt/rerun` (only its `rerun` CLI is on `PATH`).
+Python environments: ROS 2 nodes use the system Python with NumPy 1.x (`numpy<2`, required by Humble's compiled bindings). Tools that need NumPy 2 get their own venv: `rerun-sdk` lives in `/opt/rerun` (only its `rerun` CLI is on `PATH`).
 
 ### Development mode
 

@@ -15,7 +15,7 @@ services:
         USERNAME: ${USER:-developer}
         USER_UID: ${USER_UID:-1000}
         USER_GID: ${USER_GID:-1000}
-        BASE_IMAGE: ${BASE_IMAGE:-ros:jazzy-ros-base}
+        BASE_IMAGE: ${BASE_IMAGE:-ros:humble-ros-base} # must be Ubuntu 22.04 based
     image: arm-sandbox:dev
     network_mode: host # ROS 2 DDS discovery + Rerun web viewer reachable on host ports
     ipc: host # DDS shared-memory transport

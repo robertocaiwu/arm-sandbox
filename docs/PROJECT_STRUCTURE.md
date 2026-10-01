@@ -6,13 +6,13 @@
 
 ## Overview
 
-**arm-sandbox** is a **ROS 2 colcon workspace** for robot-arm manipulation in simulation, built with **ROS 2 Jazzy + MuJoCo + ros2_control + MoveIt 2**, in C++ by default and Python where easier.
+**arm-sandbox** is a **ROS 2 colcon workspace** for robot-arm manipulation in simulation, built with **ROS 2 Humble + MuJoCo + ros2_control + MoveIt 2**, in C++ by default and Python where easier.
 
 ### Stack
 
 | Layer           | Technology                                                       |
 | --------------- | ---------------------------------------------------------------- |
-| Middleware      | ROS 2 Jazzy (Ubuntu 24.04)                                       |
+| Middleware      | ROS 2 Humble (Ubuntu 22.04)                                      |
 | Physics         | MuJoCo 3.x (`mujoco_ros2_control` or custom hardware interface)  |
 | Control         | ros2_control, custom C++ controllers (OSC, impedance)            |
 | Planning        | MoveIt 2, MoveIt Servo                                           |
@@ -39,13 +39,15 @@ arm-sandbox/
 ├── .devcontainer/                   # VS Code devcontainer
 ├── .github/workflows/               # CI: build + headless tests
 ├── docker/
-│   ├── Dockerfile                   # ROS 2 Jazzy + MuJoCo + MoveIt 2 + Rerun; user mirrors the host user
+│   ├── Dockerfile                   # runs scripts/install_deps.sh; user mirrors the host user
 │   └── docker-compose.yml           # `sandbox` dev service (GPU, host network, X11, ~/.claude mount)
 ├── docs/
 │   ├── REQUIREMENTS.md              # requirements, decisions log, milestones
 │   ├── PROJECT_STRUCTURE.md         # this file
 │   ├── specs/                       # design specs
 │   └── plan/                        # implementation plans (one per milestone group)
+├── scripts/
+│   └── install_deps.sh              # all dependencies (Ubuntu 22.04); used by the Dockerfile too
 ├── tests/env/                       # toolchain smoke tests (make smoke)
 └── src/                             # colcon workspace
     ├── arm_sandbox_description/     # per-robot models + config
@@ -153,6 +155,7 @@ description ◀── read by all (via robot.yaml / URDF), depends on nothing
 | `make build`   | host      | Build the `arm-sandbox:dev` image             |
 | `make up/down` | host      | Start / stop the `sandbox` container          |
 | `make shell`   | host      | Shell into the running container              |
+| `scripts/install_deps.sh` | host or container (Ubuntu 22.04) | Install all dependencies (sudo) |
 | `make smoke`   | container | Toolchain smoke tests (`tests/env/`)          |
 | `make test`    | container | `colcon build` + `colcon test`                |
 

@@ -135,9 +135,9 @@ Reproducible experiments, containerized environment, tests, CI.
 
 | Concern | Choice | Notes |
 |---|---|---|
-| ROS 2 | **Jazzy** (Ubuntu 24.04) | Current LTS (supported to 2029). `amr-sim-lab` uses Humble, which reaches end of life in 2027. |
+| ROS 2 | **Humble** (Ubuntu 22.04) | Runs natively in the current dev environment (Ubuntu 22.04) and matches `amr-sim-lab`. LTS until May 2027; a later move to Jazzy (Ubuntu 24.04) is a known follow-up. |
 | Physics | **MuJoCo** 3.x | Light, stable, fits 8 GB easily. |
-| Sim ↔ ROS 2 | `mujoco_ros2_control` (ros-controls) | Exists as a ros-controls project. Maturity on Jazzy must be checked in M0, with a thin custom hardware interface as the fallback. |
+| Sim ↔ ROS 2 | `mujoco_ros2_control` (ros-controls) | Exists as a ros-controls project. Available as `ros-humble-mujoco-ros2-control`; maturity must be checked in M0, with a thin custom hardware interface as the fallback. |
 | Robot model | Franka Panda | MJCF from MuJoCo Menagerie. URDF and MoveIt config from upstream ROS 2 packages. |
 | Kinematics | Eigen (hand-written C++) + Pinocchio | Pinocchio is used to check the hand-written implementation. |
 | Planning | MoveIt 2 (+ MoveIt Servo) | |
@@ -240,7 +240,7 @@ Each milestone should end with something worth showing (a video plus numbers), s
 | D4 | ROS 2 is the backbone | Industry standard, and it builds on existing AMR/ROS 2 experience |
 | D5 | No real hardware, but robot-agnostic via `ros2_control` + per-robot configs | Keep a later port to a real arm possible |
 | D6 | Standalone repository `arm-sandbox`, independent of the `projects` repo | Portfolio visibility; develop on any PC |
-| D7 | ROS 2 Jazzy | Current LTS |
+| D7 | ROS 2 Humble (Ubuntu 22.04), changed from Jazzy | The dev environment is Ubuntu 22.04, where Jazzy has no binaries; Humble installs natively there and in Docker |
 | D8 | One arm (Franka Panda) for now; design stays robot-agnostic | Keep scope small |
 | D9 | Phase B trains directly on MuJoCo, deploys and evaluates through ROS 2 | Training speed |
 | D10 | C++ by default, Python where it is clearly easier | Matches job postings |

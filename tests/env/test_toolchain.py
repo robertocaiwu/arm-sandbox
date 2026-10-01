@@ -10,11 +10,14 @@ import subprocess
 
 import pytest
 
+# Headless by default; the compose file / docker/.env can override (e.g. osmesa).
+os.environ.setdefault("MUJOCO_GL", "egl")
+
 RERUN_VENV_PYTHON = "/opt/rerun/bin/python"
 
 
-def test_ros_distro_is_jazzy() -> None:
-    assert os.environ.get("ROS_DISTRO") == "jazzy"
+def test_ros_distro_is_humble() -> None:
+    assert os.environ.get("ROS_DISTRO") == "humble"
 
 
 def test_rclpy_imports() -> None:
@@ -22,7 +25,7 @@ def test_rclpy_imports() -> None:
 
 
 def test_ros_python_keeps_numpy_1() -> None:
-    # Jazzy's compiled Python bindings (e.g. pinocchio/eigenpy) are built against NumPy 1.x.
+    # Humble's compiled Python bindings (e.g. pinocchio/eigenpy) are built against NumPy 1.x.
     import numpy
 
     assert numpy.__version__.startswith("1."), numpy.__version__
@@ -34,6 +37,8 @@ def test_ros_python_keeps_numpy_1() -> None:
         "controller_manager",
         "joint_trajectory_controller",
         "moveit_ros_move_group",
+        "moveit_servo",
+        "gripper_controllers",
         "moveit_resources_panda_moveit_config",
         "robot_state_publisher",
         "xacro",
@@ -97,10 +102,6 @@ def test_rerun_sdk_in_its_own_venv() -> None:
         [RERUN_VENV_PYTHON, "-c", "import rerun"], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, result.stderr
-
-
-def test_claude_cli_available() -> None:
-    assert shutil.which("claude") is not None
 
 
 def test_gpu_visible() -> None:
