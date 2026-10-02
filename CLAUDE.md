@@ -4,7 +4,7 @@ A ROS 2 Humble + MuJoCo simulation sandbox built around a robot arm (Franka Pand
 
 **ALWAYS RESPOND IN ENGLISH**
 
-> **Status:** M0 (environment) in progress. Plan 01 is done: the dev environment (Docker, devcontainer, Makefile, `scripts/`), the toolchain smoke tests (`tests/env/`), and `arm_sandbox_description` with the Panda MJCF exist, and the sim backend is chosen (D13). Every other package and command below is still the **plan** from `docs/REQUIREMENTS.md`. Update this file as they become real.
+> **Status:** M0 and M1 done (Plans 01–02): dev environment, `arm_sandbox_description` (MJCF, URDF, robot.yaml), `arm_sandbox_sim` (scene composition), `arm_sandbox_bringup` (`make start_sim`), `arm_sandbox_viz` (Rerun bridge). Next: M2 (kinematics). Every other package and command below is still the **plan** from `docs/REQUIREMENTS.md`. Update this file as they become real.
 
 ## 📋 Core Working Principles
 
@@ -236,8 +236,8 @@ Inside the dev container (or after `scripts/install_deps.sh`):
 - `make smoke` - toolchain smoke tests (`tests/env/`)
 - `make test` - `colcon build` + `colcon test`
 - `make viewer` - open the robot's MuJoCo scene in the native viewer, no ROS (`make viewer ROBOT=panda`)
-- `make start_sim` - run the sim (`ros2 launch arm_sandbox_bringup sim.launch.py`); `make start_sim ARGS="viewer:=false gravcomp:=true"`
-- `make lint` - added by later plans
+- `make start_sim` - run the sim (native viewer + Rerun at http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy); `make start_sim ARGS="viewer:=false gravcomp:=true"`
+- `make lint` - added by a later plan
 
 The repo's parent folder is mounted at `/workspace`, so the repo must be cloned into a folder named `arm-sandbox`: it then always shows up at `/workspace/arm-sandbox` (the devcontainer's `workspaceFolder`), and sibling repos are reachable too. Host `~/.claude` is mounted into the container, so Claude Code sessions survive rebuilds and can move between PCs. The container user mirrors the host user (name, UID, GID). Local overrides (e.g. `MUJOCO_GL=osmesa`) go in `docker/.env`.
 
@@ -245,7 +245,7 @@ Python environments: ROS 2 nodes use the system Python with NumPy 1.x (`numpy<2`
 
 ### Development mode
 
-- **Rerun web viewer**: served by the `arm_sandbox_viz` bridge (port set in its config)
+- **Rerun web viewer**: http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy, started by `make start_sim` (`rerun:=false` to skip)
 - **Native viewer**: MuJoCo viewer through WSLg
 - **RViz2**: MoveIt 2 interactive planning
 - **Hot reloading**: not applicable. Rebuild with `colcon build --symlink-install` (Python and launch files pick up changes without a rebuild)

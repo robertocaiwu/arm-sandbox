@@ -1,6 +1,6 @@
 # arm-sandbox — Requirements (Draft v0.4)
 
-> Status: fourth draft, 2026-10-01. Decisions made so far are in §10. Open questions are in §11.
+> Status: fourth draft, 2026-10-01; D15–D17 added 2026-10-02 (Plan 02). Decisions made so far are in §10. Open questions are in §11.
 
 ## 1. Purpose
 
@@ -249,6 +249,9 @@ Each milestone should end with something worth showing (a video plus numbers), s
 | D12 | Rerun for the browser viewer (no Foxglove); custom viewer as a future milestone | Open source, local, no frontend to maintain now; keeps the option to build one |
 | D13 | Sim backend: `mujoco_ros2_control` 0.1.2, without lockstep (physics free-runs on sim time) | M0 spike (Plan 01, Task 10): meets every need except lockstep; writing our own interface would duplicate cameras, reset, viewer and `/clock` |
 | D14 | MuJoCo 3.12.0 everywhere (pip pinned to `mujoco_vendor`'s version) | Gymnasium training and the ROS 2 sim run the same engine |
+| D15 | Gravity compensation is a launch argument, `gravcomp:=false` by default: controllers compensate gravity; `true` makes MuJoCo compensate the arm (like the real Panda's torque interface) | Keeps gravity compensation a skill to build (M3) while allowing real-robot behavior; only the robot's bodies are compensated, never task objects |
+| D16 | Own Panda URDF xacro: upstream kinematics, Menagerie meshes, inertials, ranges and torque limits, plus `panda_hand_tcp` | The upstream URDF's `.dae` visuals don't load in Rerun and it has no TCP frame; one mesh source keeps URDF and MJCF in agreement (tested against Pinocchio) |
+| D17 | Rerun C++ SDK built from the release bundle by `install_deps.sh` into `/opt/rerun_cpp_sdk`, same version as the viewer | No apt package; one dependency list, offline colcon builds |
 
 ## 11. Open Questions
 
