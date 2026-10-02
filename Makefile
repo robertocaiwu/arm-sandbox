@@ -1,5 +1,5 @@
 # Host targets (need Docker):          build, up, shell, down (each runs select-gpu first)
-# Container targets (in dev container): smoke, test
+# Container targets (in dev container): smoke, test, viewer
 SHELL := /bin/bash
 # GPU=auto (default) enables the NVIDIA GPU when Docker has the nvidia runtime; force with
 # `make up GPU=1` or `GPU=0`. scripts/select_gpu.sh writes the per-PC override file.
@@ -13,8 +13,10 @@ ROS_SETUP := source /opt/ros/humble/setup.bash
 # ROS 2 uses the distro Python; never a conda/pyenv python3 that may be first on PATH
 # (pytest here, and CMake's Python3_EXECUTABLE for colcon builds).
 PYTHON := /usr/bin/python3
+# Robot folder in src/arm_sandbox_description (`make viewer ROBOT=<name>`).
+ROBOT ?= panda
 
-.PHONY: select-gpu build up shell down smoke test
+.PHONY: select-gpu build up shell down smoke test viewer
 
 select-gpu:
 	scripts/select_gpu.sh
@@ -37,3 +39,8 @@ smoke:
 test:
 	$(ROS_SETUP) && colcon build --symlink-install --cmake-args -DPython3_EXECUTABLE=$(PYTHON) \
 		&& colcon test && colcon test-result --verbose
+
+# Open the robot's MuJoCo scene in the native MuJoCo viewer, straight from the source tree (no ROS).
+# Needs a display (WSLg or X11). Physics runs in the viewer; nothing commands the arm.
+viewer:
+	$(PYTHON) -m mujoco.viewer --mjcf=src/arm_sandbox_description/$(ROBOT)/mjcf/scene.xml

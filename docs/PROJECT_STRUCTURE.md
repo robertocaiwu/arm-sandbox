@@ -161,6 +161,7 @@ description ◀── read by all (via robot.yaml / URDF), depends on nothing
 | `scripts/install_deps.sh` | host or container (Ubuntu 22.04) | Install all dependencies (sudo) |
 | `make smoke`   | container | Toolchain smoke tests (`tests/env/`)          |
 | `make test`    | container | `colcon build` + `colcon test`                |
+| `make viewer` | container | Native MuJoCo viewer on the robot scene, no ROS (`ROBOT=panda`) |
 
 `make sim` and `make lint` are added by later plans.
 
