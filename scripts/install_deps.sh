@@ -4,6 +4,7 @@
 #   - build/test/lint tools and GL libraries for MuJoCo rendering (apt)
 #   - MuJoCo Python bindings on the system Python (pip)
 #   - Rerun viewer in its own venv (/opt/rerun), `rerun` CLI on PATH
+#   - Rerun C++ SDK (built from the release bundle) in /opt/rerun_cpp_sdk, for arm_sandbox_viz
 #
 # Single source of truth for dependencies: docker/Dockerfile runs this script too.
 # Safe to re-run. Privileged steps use sudo when not run as root.
@@ -19,6 +20,7 @@ readonly REQUIRED_CODENAME="jammy"
 readonly MUJOCO_VERSION="${MUJOCO_VERSION:-3.12.0}"
 readonly RERUN_VERSION="${RERUN_VERSION:-0.38.1}"
 readonly RERUN_VENV="/opt/rerun"
+readonly RERUN_CPP_SDK_PREFIX="/opt/rerun_cpp_sdk"
 # ROS 2 runs on the distro's Python. Never use whichever `python3` comes first on PATH
 # (conda, pyenv, ...): packages installed there are invisible to ROS nodes.
 readonly SYSTEM_PYTHON="/usr/bin/python3"
@@ -123,6 +125,29 @@ install_rerun() {
     "${SUDO[@]}" ln -sf "${RERUN_VENV}/bin/rerun" /usr/local/bin/rerun
 }
 
+install_rerun_cpp_sdk() {
+    # arm_sandbox_viz links the Rerun C++ SDK, which has no apt package. Build it from the release
+    # bundle at the viewer's version, so colcon builds find it offline (find_package(rerun_sdk)).
+    # The bundle builds Apache Arrow: ~10 minutes.
+    local version_file="${RERUN_CPP_SDK_PREFIX}/lib/cmake/rerun_sdk/rerun_sdkConfigVersion.cmake"
+    if [ -f "${version_file}" ] && grep -qF "set(PACKAGE_VERSION \"${RERUN_VERSION}\")" "${version_file}"; then
+        echo "Rerun C++ SDK ${RERUN_VERSION} already installed."
+        return
+    fi
+
+    echo "Building the Rerun C++ SDK ${RERUN_VERSION} into ${RERUN_CPP_SDK_PREFIX}..."
+    local work
+    work="$(mktemp -d)"
+    curl -fsSL -o "${work}/rerun_cpp_sdk.zip" \
+        "https://github.com/rerun-io/rerun/releases/download/${RERUN_VERSION}/rerun_cpp_sdk.zip"
+    "${SYSTEM_PYTHON}" -m zipfile -e "${work}/rerun_cpp_sdk.zip" "${work}"
+    cmake -S "${work}/rerun_cpp_sdk" -B "${work}/build" \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${RERUN_CPP_SDK_PREFIX}"
+    cmake --build "${work}/build" --config Release --target rerun_sdk -j"$(nproc)"
+    "${SUDO[@]}" cmake --install "${work}/build"
+    rm -rf "${work}"
+}
+
 main() {
     check_os
     setup_ros_apt_repo
@@ -130,6 +155,7 @@ main() {
     init_rosdep
     install_python_packages
     install_rerun
+    install_rerun_cpp_sdk
 
     cat <<EOF
 

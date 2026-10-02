@@ -5,8 +5,10 @@ These are the acceptance gate for docker/Dockerfile (Plan 01, Task 3).
 """
 
 import os
+import re
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +17,8 @@ os.environ.setdefault("MUJOCO_GL", "egl")
 
 RERUN_VENV_PYTHON = "/opt/rerun/bin/python"
 MUJOCO_VENDOR_LIB = "/opt/ros/humble/opt/mujoco_vendor/lib"
+RERUN_CPP_SDK_PREFIX = Path("/opt/rerun_cpp_sdk")
+RERUN_CPP_SDK_VERSION_FILE = RERUN_CPP_SDK_PREFIX / "lib" / "cmake" / "rerun_sdk" / "rerun_sdkConfigVersion.cmake"
 
 
 def test_ros_distro_is_humble() -> None:
@@ -123,3 +127,35 @@ def test_gpu_visible() -> None:
         pytest.skip("no NVIDIA GPU in this environment (e.g. CI)")
     result = subprocess.run(["nvidia-smi", "-L"], capture_output=True, text=True, check=False)
     assert result.returncode == 0 and "GPU" in result.stdout, result.stderr
+
+
+def test_rerun_cpp_sdk_matches_viewer_version() -> None:
+    # The viz bridge (C++ SDK) and the viewer (`rerun` CLI) must be the same Rerun version.
+    assert RERUN_CPP_SDK_VERSION_FILE.is_file(), "Rerun C++ SDK not installed (scripts/install_deps.sh)"
+    match = re.search(r'set\(PACKAGE_VERSION "([^"]+)"\)', RERUN_CPP_SDK_VERSION_FILE.read_text())
+    assert match, "no PACKAGE_VERSION in the Rerun C++ SDK config"
+    viewer = subprocess.run(["rerun", "--version"], capture_output=True, text=True, check=True).stdout
+    assert f"rerun-cli {match.group(1)} " in viewer, (match.group(1), viewer)
+
+
+def test_rerun_cpp_sdk_builds_and_links(tmp_path: Path) -> None:
+    (tmp_path / "CMakeLists.txt").write_text(
+        "cmake_minimum_required(VERSION 3.16)\n"
+        "project(rerun_smoke CXX)\n"
+        "set(CMAKE_CXX_STANDARD 17)\n"
+        "find_package(rerun_sdk REQUIRED)\n"
+        "add_executable(rerun_smoke main.cpp)\n"
+        "target_compile_options(rerun_smoke PRIVATE -Wall -Wextra -Wpedantic -Werror)\n"
+        "target_link_libraries(rerun_smoke PRIVATE rerun_sdk)\n"
+    )
+    (tmp_path / "main.cpp").write_text(
+        '#include <rerun.hpp>\nint main() { const rerun::RecordingStream rec("smoke"); return 0; }\n'
+    )
+    build = tmp_path / "build"
+    for command in (
+        ["cmake", "-S", str(tmp_path), "-B", str(build), f"-DCMAKE_PREFIX_PATH={RERUN_CPP_SDK_PREFIX}"],
+        ["cmake", "--build", str(build)],
+        [str(build / "rerun_smoke")],
+    ):
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        assert result.returncode == 0, f"{command}: {result.stdout}\n{result.stderr}"
