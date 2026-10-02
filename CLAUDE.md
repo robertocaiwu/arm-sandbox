@@ -16,6 +16,7 @@ A ROS 2 Humble + MuJoCo simulation sandbox built around a robot arm (Franka Pand
 6. NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
 7. REQUIREMENTS, DECISIONS (§10) AND MILESTONES ARE IN ./docs/REQUIREMENTS.md. DESIGN IS IN ./docs/specs/. IMPLEMENTATION PLANS ARE IN ./docs/plan/. Read them before any design decision
 8. PROJECT STRUCTURE IS IN ./docs/PROJECT_STRUCTURE.md
+9. CHANGE HISTORY IS IN ./docs/MEMORY.md. At the end of a work session, APPEND a new `## Session — <date>` section; never rewrite earlier sessions
 
 ## 🏗️ Project Stack
 

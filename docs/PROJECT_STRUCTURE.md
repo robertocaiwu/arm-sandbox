@@ -46,6 +46,7 @@ arm-sandbox/
 ├── docs/
 │   ├── REQUIREMENTS.md              # requirements, decisions log, milestones
 │   ├── PROJECT_STRUCTURE.md         # this file
+│   ├── MEMORY.md                    # change history, one appended section per session
 │   ├── specs/                       # design specs
 │   └── plan/                        # implementation plans (one per milestone group)
 ├── scripts/
