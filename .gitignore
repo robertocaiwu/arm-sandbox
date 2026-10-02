@@ -30,3 +30,5 @@ docker/docker-compose.local.yml
 MUJOCO_LOG.TXT
 
 graphify-out/
+
+.vscode/
