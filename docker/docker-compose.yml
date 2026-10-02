@@ -28,7 +28,7 @@ services:
       - MUJOCO_GL=${MUJOCO_GL:-egl} # override in docker/.env (e.g. osmesa) if EGL fails on a PC
     volumes:
       # Same container path on every PC: Claude Code keys sessions by working directory.
-      - ..:/workspace/arm-sandbox
+      - ../..:/workspace
       # X11 for the native MuJoCo viewer and RViz2 (WSLg exposes it here too).
       - /tmp/.X11-unix:/tmp/.X11-unix
       # Claude Code sessions, memory and login live on the host, not in the container.
@@ -37,3 +37,7 @@ services:
       # git identity and SSH keys for push (read-only).
       - ${HOME}/.gitconfig:/home/${USER}/.gitconfig:ro
       - ${HOME}/.ssh:/home/${USER}/.ssh:ro
+
+      - ${HOME}/.config:/home/${USER}/.config:ro
+      - ${HOME}/.vim:/home/${USER}/.vim:ro
+      - ${HOME}/.bashrc:/home/${USER}/.bashrc:ro

@@ -1,0 +1,224 @@
+<?xml version="1.0"?>
+<!--
+  Franka Panda for arm-sandbox (ROS side), selected by robot:=panda.
+  - Joint origins and axes follow the upstream Panda URDF (moveit_resources_panda_description).
+  - Joint ranges, torque limits, inertials and meshes come from the vendored MuJoCo Menagerie model
+    in ../mjcf/, so the URDF and the MJCF describe the same robot (test/test_panda_urdf.py).
+  - Link frames equal the MJCF body frames. panda_rightfinger is rotated by pi about z, as in the
+    MJCF, so both fingers share one mesh and one joint axis.
+  - panda_hand_tcp is the tool centre point between the fingertips (robot.yaml ee_frame).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="panda">
+  <!-- Set by sim.launch.py. Empty defaults keep the file loadable for tests and RViz. -->
+  <xacro:arg name="mujoco_model" default=""/>
+  <xacro:arg name="headless" default="false"/>
+  <xacro:include filename="panda.ros2_control.xacro"/>
+  <xacro:property name="mesh_dir" value="package://arm_sandbox_description/panda/mjcf/assets"/>
+  <!-- MJCF material colors. Set inline per visual: not every URDF consumer resolves named materials. -->
+  <xacro:property name="colors" value="${dict(white='1 1 1 1', off_white='0.901961 0.921569 0.929412 1', black='0.25 0.25 0.25 1', green='0 1 0 1', light_blue='0.039216 0.541176 0.780392 1')}"/>
+
+  <!-- One visual per MJCF visual geom of the body. -->
+  <xacro:macro name="visual_part" params="mesh color">
+    <visual>
+      <geometry>
+        <mesh filename="${mesh_dir}/${mesh}.obj"/>
+      </geometry>
+      <material name="${color}">
+        <color rgba="${colors[color]}"/>
+      </material>
+    </visual>
+  </xacro:macro>
+
+  <xacro:macro name="collision_mesh" params="file">
+    <collision>
+      <geometry>
+        <mesh filename="${mesh_dir}/${file}"/>
+      </geometry>
+    </collision>
+  </xacro:macro>
+
+  <!-- Same values as the MJCF <inertial> (fullinertia order: ixx iyy izz ixy ixz iyz). -->
+  <xacro:macro name="link_inertial" params="mass xyz ixx iyy izz ixy ixz iyz">
+    <inertial>
+      <origin xyz="${xyz}" rpy="0 0 0"/>
+      <mass value="${mass}"/>
+      <inertia ixx="${ixx}" iyy="${iyy}" izz="${izz}" ixy="${ixy}" ixz="${ixz}" iyz="${iyz}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- Limits: MJCF joint ranges and actuator torque limits; velocity from the Franka datasheet. -->
+  <xacro:macro name="arm_joint" params="index xyz rpy lower upper effort velocity">
+    <joint name="panda_joint${index}" type="revolute">
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+      <parent link="panda_link${index - 1}"/>
+      <child link="panda_link${index}"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="${lower}" upper="${upper}" effort="${effort}" velocity="${velocity}"/>
+    </joint>
+  </xacro:macro>
+
+  <link name="panda_link0">
+    <xacro:link_inertial mass="0.629769" xyz="-0.041018 -0.00014 0.049974"
+      ixx="0.00315" iyy="0.00388" izz="0.004285" ixy="8.2904e-7" ixz="0.00015" iyz="8.2299e-6"/>
+    <xacro:visual_part mesh="link0_0" color="off_white"/>
+    <xacro:visual_part mesh="link0_1" color="black"/>
+    <xacro:visual_part mesh="link0_2" color="off_white"/>
+    <xacro:visual_part mesh="link0_3" color="black"/>
+    <xacro:visual_part mesh="link0_4" color="off_white"/>
+    <xacro:visual_part mesh="link0_5" color="black"/>
+    <xacro:visual_part mesh="link0_7" color="white"/>
+    <xacro:visual_part mesh="link0_8" color="white"/>
+    <xacro:visual_part mesh="link0_9" color="black"/>
+    <xacro:visual_part mesh="link0_10" color="off_white"/>
+    <xacro:visual_part mesh="link0_11" color="white"/>
+    <xacro:collision_mesh file="link0.stl"/>
+  </link>
+
+  <xacro:arm_joint index="1" xyz="0 0 0.333" rpy="0 0 0" lower="-2.8973" upper="2.8973" effort="87" velocity="2.1750"/>
+  <link name="panda_link1">
+    <xacro:link_inertial mass="4.970684" xyz="0.003875 0.002081 -0.04762"
+      ixx="0.70337" iyy="0.70661" izz="0.0091170" ixy="-0.00013900" ixz="0.0067720" iyz="0.019169"/>
+    <xacro:visual_part mesh="link1" color="white"/>
+    <xacro:collision_mesh file="link1.stl"/>
+  </link>
+
+  <xacro:arm_joint index="2" xyz="0 0 0" rpy="${-pi/2} 0 0" lower="-1.7628" upper="1.7628" effort="87" velocity="2.1750"/>
+  <link name="panda_link2">
+    <xacro:link_inertial mass="0.646926" xyz="-0.003141 -0.02872 0.003495"
+      ixx="0.0079620" iyy="2.8110e-2" izz="2.5995e-2" ixy="-3.925e-3" ixz="1.0254e-2" iyz="7.04e-4"/>
+    <xacro:visual_part mesh="link2" color="white"/>
+    <xacro:collision_mesh file="link2.stl"/>
+  </link>
+
+  <xacro:arm_joint index="3" xyz="0 -0.316 0" rpy="${pi/2} 0 0" lower="-2.8973" upper="2.8973" effort="87" velocity="2.1750"/>
+  <link name="panda_link3">
+    <xacro:link_inertial mass="3.228604" xyz="2.7518e-2 3.9252e-2 -6.6502e-2"
+      ixx="3.7242e-2" iyy="3.6155e-2" izz="1.083e-2" ixy="-4.761e-3" ixz="-1.1396e-2" iyz="-1.2805e-2"/>
+    <xacro:visual_part mesh="link3_0" color="white"/>
+    <xacro:visual_part mesh="link3_1" color="white"/>
+    <xacro:visual_part mesh="link3_2" color="white"/>
+    <xacro:visual_part mesh="link3_3" color="black"/>
+    <xacro:collision_mesh file="link3.stl"/>
+  </link>
+
+  <xacro:arm_joint index="4" xyz="0.0825 0 0" rpy="${pi/2} 0 0" lower="-3.0718" upper="-0.0698" effort="87" velocity="2.1750"/>
+  <link name="panda_link4">
+    <xacro:link_inertial mass="3.587895" xyz="-5.317e-2 1.04419e-1 2.7454e-2"
+      ixx="2.5853e-2" iyy="1.9552e-2" izz="2.8323e-2" ixy="7.796e-3" ixz="-1.332e-3" iyz="8.641e-3"/>
+    <xacro:visual_part mesh="link4_0" color="white"/>
+    <xacro:visual_part mesh="link4_1" color="white"/>
+    <xacro:visual_part mesh="link4_2" color="black"/>
+    <xacro:visual_part mesh="link4_3" color="white"/>
+    <xacro:collision_mesh file="link4.stl"/>
+  </link>
+
+  <xacro:arm_joint index="5" xyz="-0.0825 0.384 0" rpy="${-pi/2} 0 0" lower="-2.8973" upper="2.8973" effort="12" velocity="2.6100"/>
+  <link name="panda_link5">
+    <xacro:link_inertial mass="1.225946" xyz="-1.1953e-2 4.1065e-2 -3.8437e-2"
+      ixx="3.5549e-2" iyy="2.9474e-2" izz="8.627e-3" ixy="-2.117e-3" ixz="-4.037e-3" iyz="2.29e-4"/>
+    <xacro:visual_part mesh="link5_0" color="black"/>
+    <xacro:visual_part mesh="link5_1" color="white"/>
+    <xacro:visual_part mesh="link5_2" color="white"/>
+    <xacro:collision_mesh file="link5_collision_0.obj"/>
+    <xacro:collision_mesh file="link5_collision_1.obj"/>
+    <xacro:collision_mesh file="link5_collision_2.obj"/>
+  </link>
+
+  <xacro:arm_joint index="6" xyz="0 0 0" rpy="${pi/2} 0 0" lower="-0.0175" upper="3.7525" effort="12" velocity="2.6100"/>
+  <link name="panda_link6">
+    <xacro:link_inertial mass="1.666555" xyz="6.0149e-2 -1.4117e-2 -1.0517e-2"
+      ixx="1.964e-3" iyy="4.354e-3" izz="5.433e-3" ixy="1.09e-4" ixz="-1.158e-3" iyz="3.41e-4"/>
+    <xacro:visual_part mesh="link6_0" color="off_white"/>
+    <xacro:visual_part mesh="link6_1" color="white"/>
+    <xacro:visual_part mesh="link6_2" color="black"/>
+    <xacro:visual_part mesh="link6_3" color="white"/>
+    <xacro:visual_part mesh="link6_4" color="white"/>
+    <xacro:visual_part mesh="link6_5" color="white"/>
+    <xacro:visual_part mesh="link6_6" color="white"/>
+    <xacro:visual_part mesh="link6_7" color="light_blue"/>
+    <xacro:visual_part mesh="link6_8" color="light_blue"/>
+    <xacro:visual_part mesh="link6_9" color="black"/>
+    <xacro:visual_part mesh="link6_10" color="black"/>
+    <xacro:visual_part mesh="link6_11" color="white"/>
+    <xacro:visual_part mesh="link6_12" color="green"/>
+    <xacro:visual_part mesh="link6_13" color="white"/>
+    <xacro:visual_part mesh="link6_14" color="black"/>
+    <xacro:visual_part mesh="link6_15" color="black"/>
+    <xacro:visual_part mesh="link6_16" color="white"/>
+    <xacro:collision_mesh file="link6.stl"/>
+  </link>
+
+  <xacro:arm_joint index="7" xyz="0.088 0 0" rpy="${pi/2} 0 0" lower="-2.8973" upper="2.8973" effort="12" velocity="2.6100"/>
+  <link name="panda_link7">
+    <xacro:link_inertial mass="7.35522e-01" xyz="1.0517e-2 -4.252e-3 6.1597e-2"
+      ixx="1.2516e-2" iyy="1.0027e-2" izz="4.815e-3" ixy="-4.28e-4" ixz="-1.196e-3" iyz="-7.41e-4"/>
+    <xacro:visual_part mesh="link7_0" color="white"/>
+    <xacro:visual_part mesh="link7_1" color="black"/>
+    <xacro:visual_part mesh="link7_2" color="black"/>
+    <xacro:visual_part mesh="link7_3" color="black"/>
+    <xacro:visual_part mesh="link7_4" color="black"/>
+    <xacro:visual_part mesh="link7_5" color="black"/>
+    <xacro:visual_part mesh="link7_6" color="black"/>
+    <xacro:visual_part mesh="link7_7" color="white"/>
+    <xacro:collision_mesh file="link7.stl"/>
+  </link>
+
+  <!-- Flange (no body in the MJCF; the hand body there sits directly at this offset). -->
+  <joint name="panda_joint8" type="fixed">
+    <origin xyz="0 0 0.107" rpy="0 0 0"/>
+    <parent link="panda_link7"/>
+    <child link="panda_link8"/>
+  </joint>
+  <link name="panda_link8"/>
+
+  <joint name="panda_hand_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 ${-pi/4}"/>
+    <parent link="panda_link8"/>
+    <child link="panda_hand"/>
+  </joint>
+  <link name="panda_hand">
+    <xacro:link_inertial mass="0.73" xyz="-0.01 0 0.03" ixx="0.001" iyy="0.0025" izz="0.0017" ixy="0" ixz="0" iyz="0"/>
+    <xacro:visual_part mesh="hand_0" color="off_white"/>
+    <xacro:visual_part mesh="hand_1" color="black"/>
+    <xacro:visual_part mesh="hand_2" color="black"/>
+    <xacro:visual_part mesh="hand_3" color="white"/>
+    <xacro:visual_part mesh="hand_4" color="off_white"/>
+    <xacro:collision_mesh file="hand.stl"/>
+  </link>
+
+  <joint name="panda_hand_tcp_joint" type="fixed">
+    <origin xyz="0 0 0.1034" rpy="0 0 0"/>
+    <parent link="panda_hand"/>
+    <child link="panda_hand_tcp"/>
+  </joint>
+  <link name="panda_hand_tcp"/>
+
+  <!-- Both fingers are identical links; the right one is turned by its joint origin below. -->
+  <xacro:macro name="finger" params="side">
+    <link name="panda_${side}finger">
+      <xacro:link_inertial mass="0.015" xyz="0 0 0" ixx="2.375e-6" iyy="2.375e-6" izz="7.5e-7" ixy="0" ixz="0" iyz="0"/>
+      <xacro:visual_part mesh="finger_0" color="off_white"/>
+      <xacro:visual_part mesh="finger_1" color="black"/>
+      <xacro:collision_mesh file="finger_0.obj"/>
+    </link>
+  </xacro:macro>
+  <xacro:finger side="left"/>
+  <xacro:finger side="right"/>
+
+  <joint name="panda_finger_joint1" type="prismatic">
+    <origin xyz="0 0 0.0584" rpy="0 0 0"/>
+    <parent link="panda_hand"/>
+    <child link="panda_leftfinger"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="0.0" upper="0.04" effort="20" velocity="0.2"/>
+  </joint>
+  <joint name="panda_finger_joint2" type="prismatic">
+    <origin xyz="0 0 0.0584" rpy="0 0 ${pi}"/>
+    <parent link="panda_hand"/>
+    <child link="panda_rightfinger"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="0.0" upper="0.04" effort="20" velocity="0.2"/>
+    <mimic joint="panda_finger_joint1"/>
+  </joint>
+  <xacro:panda_ros2_control/>
+</robot>

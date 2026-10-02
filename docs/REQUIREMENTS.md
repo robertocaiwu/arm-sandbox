@@ -1,6 +1,6 @@
 # arm-sandbox — Requirements (Draft v0.4)
 
-> Status: fourth draft, 2026-10-01. Decisions made so far are in §10. Open questions are in §11.
+> Status: fourth draft, 2026-10-01; D15–D17 added 2026-10-02 (Plan 02). Decisions made so far are in §10. Open questions are in §11.
 
 ## 1. Purpose
 
@@ -112,7 +112,7 @@ Reproducible experiments, containerized environment, tests, CI.
 - **FR-24** A **Gymnasium** wrapper over the same tasks for training, so any RL/IL library can plug in.
 - **FR-25** Collect demonstrations from scripted Phase A skills and from teleop (MoveIt Servo), and store them in **LeRobotDataset** format.
 - **FR-26** Train and evaluate BC / ACT / Diffusion Policy, at least one RL policy (PPO or SAC), and one small VLA.
-- **FR-27** A VLM planner breaks a language goal into Phase A skill calls (`pick(obj)`, `place(obj, target)`). It can reuse the local Ollama/Qwen setup (`scripts/python/start_ollama_qwen.py`).
+- **FR-27** A VLM planner breaks a language goal into Phase A skill calls (`pick(obj)`, `place(obj, target)`). It talks over HTTP to Qwen-VL served by Ollama on the host, so no Ollama setup lives in this repo.
 - **FR-28** Training runs directly on MuJoCo through the Gymnasium wrapper (no ROS 2 in the loop, for speed). It uses the same robot and task configs as the ROS 2 stack. Trained policies are then deployed as ROS 2 nodes and evaluated under the same conditions as the Phase A stack.
 
 ### 3.7 Evaluation
@@ -127,7 +127,7 @@ Reproducible experiments, containerized environment, tests, CI.
 - **NFR-2 Containerized.** One Docker image (ROS 2 + MuJoCo + dev tools) with NVIDIA GPU passthrough, plus a VS Code devcontainer, following the `apps/amr-sim-lab` pattern. Self-contained: no dependency on the `ai-station` image.
 - **NFR-3 Reproducible.** Pinned dependencies, seeds, and configs saved with every run's outputs.
 - **NFR-4 Tested.** Unit tests for kinematics and control math (FK∘IK round-trip, Jacobian vs finite differences), `launch_testing` integration tests for the ROS 2 bring-up, and smoke tests per task. All tests run headless.
-- **NFR-5 CI.** GitHub Actions builds the workspace and runs tests headless on every push.
+- **NFR-5 CI.** A GitHub Actions workflow builds the workspace and runs tests headless. Running it is optional (design spec: "CI is optional"); the same checks always run locally with `make test`.
 - **NFR-6 Language and readability.** **C++ by default** (controllers, hardware interface, kinematics, perception, task executive). Python where it is clearly easier (launch files, eval scripts, Gymnasium wrapper, learning code, VLM planner). Modern C++ (C++17/20) with typed Python, clear package boundaries, and a short README per package explaining the theory behind it. The audience is hiring teams reading the code.
 - **NFR-7 Performance.** Sim runs at least real-time with visualization on. Phase B training uses a faster non-ROS path (FR-28).
 
@@ -145,7 +145,7 @@ Reproducible experiments, containerized environment, tests, CI.
 | Browser visualization | **Rerun** (web viewer) + custom bridge node | Plus RViz2 and the native MuJoCo viewer. Optional `web_video_server` for camera video. Custom viewer later (M12). |
 | IL / VLA (Phase B) | LeRobot | ACT, Diffusion Policy, SmolVLA, and LeRobotDataset in one library. |
 | RL (Phase B) | Stable-Baselines3 | |
-| VLM (Phase B) | Qwen-VL via Ollama | Already set up in this workspace. |
+| VLM (Phase B) | Qwen-VL via Ollama | Runs on the host, outside the container. Already set up there. |
 
 ## 6. High-Level Architecture (draft)
 
@@ -183,6 +183,7 @@ Proposed ROS 2 packages (colcon workspace under `src/`):
 | `arm_sandbox_learning` | Phase B: Gymnasium wrapper, data collection, policy nodes |
 | `arm_sandbox_eval` | Evaluation runner and results table |
 | `arm_sandbox_viz` | ROS 2 → Rerun bridge node (C++) |
+| `arm_sandbox_interfaces` | Custom msg/srv/action (reset service, skill actions), only where standard types don't fit |
 | `arm_sandbox_bringup` | Launch files and top-level configs |
 
 ## 7. Milestones
@@ -227,7 +228,7 @@ Each milestone should end with something worth showing (a video plus numbers), s
 
 ## 9. Repository
 
-- Name: **`arm-sandbox`**, a standalone git repository. It is not part of the `projects` repo (no submodule, nothing tracked there, no references outside its own folder). On the original PC it is checked out at `/workspace/apps/arm-sandbox`, where `projects` ignores `apps/*`. Inside the dev container it is always mounted at `/workspace/arm-sandbox`.
+- Name: **`arm-sandbox`**, a standalone git repository. It is not part of the `projects` repo (no submodule, nothing tracked there, no references outside its own folder). On the original PC it is checked out at `/workspace/apps/arm-sandbox`, where `projects` ignores `apps/*`. Inside the dev container its parent folder is mounted at `/workspace`. The repo folder is always named `arm-sandbox`, so the repo is at `/workspace/arm-sandbox` on every PC.
 - Layout follows `apps/amr-sim-lab`: `src/` (colcon workspace), `docker/`, `docs/`, a `Makefile` for common commands.
 
 ## 10. Decisions Log
@@ -248,6 +249,9 @@ Each milestone should end with something worth showing (a video plus numbers), s
 | D12 | Rerun for the browser viewer (no Foxglove); custom viewer as a future milestone | Open source, local, no frontend to maintain now; keeps the option to build one |
 | D13 | Sim backend: `mujoco_ros2_control` 0.1.2, without lockstep (physics free-runs on sim time) | M0 spike (Plan 01, Task 10): meets every need except lockstep; writing our own interface would duplicate cameras, reset, viewer and `/clock` |
 | D14 | MuJoCo 3.12.0 everywhere (pip pinned to `mujoco_vendor`'s version) | Gymnasium training and the ROS 2 sim run the same engine |
+| D15 | Gravity compensation is a launch argument, `gravcomp:=false` by default: controllers compensate gravity; `true` makes MuJoCo compensate the arm (like the real Panda's torque interface) | Keeps gravity compensation a skill to build (M3) while allowing real-robot behavior; only the robot's bodies are compensated, never task objects |
+| D16 | Own Panda URDF xacro: upstream kinematics, Menagerie meshes, inertials, ranges and torque limits, plus `panda_hand_tcp` | The upstream URDF's `.dae` visuals don't load in Rerun and it has no TCP frame; one mesh source keeps URDF and MJCF in agreement (tested against Pinocchio) |
+| D17 | Rerun C++ SDK built from the release bundle by `install_deps.sh` into `/opt/rerun_cpp_sdk`, same version as the viewer | No apt package; one dependency list, offline colcon builds |
 
 ## 11. Open Questions
 

@@ -2,7 +2,7 @@
 
 > Architectural map for AI agents and developers. Enables quick navigation and dependency analysis.
 >
-> **Status: planned.** No code exists yet. This is the target layout from `docs/REQUIREMENTS.md` (§6). Update it as packages are created.
+> **Status: M0 and M1 done (Plan 02).** These exist: the dev environment, `tests/env/`, `arm_sandbox_description` (Panda MJCF, URDF xacro, robot.yaml), `arm_sandbox_sim` (scene composition only), `arm_sandbox_bringup` (sim launch, controllers), and `arm_sandbox_viz` (Rerun bridge). Everything else is the target layout from `docs/REQUIREMENTS.md` (§6). Update it as packages are created.
 
 ## Overview
 
@@ -41,11 +41,12 @@ arm-sandbox/
 ├── .github/workflows/               # CI: build + headless tests
 ├── docker/
 │   ├── Dockerfile                   # runs scripts/install_deps.sh; user mirrors the host user
-│   ├── docker-compose.yml           # `sandbox` dev service, CPU-only (host network, X11, ~/.claude mount)
+│   ├── docker-compose.yml           # `sandbox` dev service, CPU-only (host network, X11, repo parent at /workspace, ~/.claude mount)
 │   └── docker-compose.local.yml     # generated per PC by select_gpu.sh (GPU or CPU), gitignored
 ├── docs/
 │   ├── REQUIREMENTS.md              # requirements, decisions log, milestones
 │   ├── PROJECT_STRUCTURE.md         # this file
+│   ├── MEMORY.md                    # change history, one appended section per session
 │   ├── specs/                       # design specs
 │   └── plan/                        # implementation plans (one per milestone group)
 ├── scripts/
@@ -57,7 +58,6 @@ arm-sandbox/
     │   └── panda/
     │       ├── urdf/                # URDF/xacro (+ ros2_control tags)
     │       ├── mjcf/                # MuJoCo model (from MuJoCo Menagerie)
-    │       ├── meshes/
     │       └── config/robot.yaml    # arm joints, base/EE frames, gripper, home pose
     ├── arm_sandbox_sim/             # MuJoCo bring-up, scenes, sensors, reset/randomize services
     ├── arm_sandbox_kinematics/      # pure C++ library (no ROS): FK, Jacobian, IK
@@ -81,7 +81,7 @@ arm-sandbox/
 | Package                     | Lang          | Phase | Purpose                                                                                   |
 | --------------------------- | ------------- | ----- | ----------------------------------------------------------------------------------------- |
 | `arm_sandbox_description`   | data          | A     | All robot-specific files, one folder per robot. The only place robot names appear         |
-| `arm_sandbox_sim`           | C++           | A     | Loads MJCF + scene, runs physics, publishes cameras, reset/randomize services             |
+| `arm_sandbox_sim`           | Python (C++ later) | A | Scene composition at launch (gravcomp, D15); later reset/randomize services, ground truth |
 | `arm_sandbox_kinematics`    | C++           | A     | ROS-free kinematics library (Eigen), unit-tested against Pinocchio                        |
 | `arm_sandbox_controllers`   | C++           | A     | `controller_interface` plugins: operational-space, impedance                              |
 | `arm_sandbox_moveit_config` | config        | A     | SRDF, kinematics solver, joint limits, planning pipelines                                 |
@@ -128,6 +128,7 @@ description ◀── read by all (via robot.yaml / URDF), depends on nothing
 
 - Launch argument: `robot:=panda`. Resolves to `arm_sandbox_description/<robot>/`, its `ros2_control` YAML, and its MoveIt config
 - Adding a robot = adding a description folder + configs. No code changes
+- Launch arguments of `sim.launch.py`: `robot`, `viewer`, `gravcomp`, `rerun`, `rerun_save`
 
 ### Config files
 
@@ -161,8 +162,10 @@ description ◀── read by all (via robot.yaml / URDF), depends on nothing
 | `scripts/install_deps.sh` | host or container (Ubuntu 22.04) | Install all dependencies (sudo) |
 | `make smoke`   | container | Toolchain smoke tests (`tests/env/`)          |
 | `make test`    | container | `colcon build` + `colcon test`                |
+| `make viewer` | container | Native MuJoCo viewer on the robot scene, no ROS (`ROBOT=panda`) |
+| `make start_sim` | container | Run the sim: native viewer + Rerun (`ARGS="viewer:=false gravcomp:=true rerun:=false"`) |
 
-`make sim` and `make lint` are added by later plans.
+`make lint` is added by a later plan.
 
 ---
 

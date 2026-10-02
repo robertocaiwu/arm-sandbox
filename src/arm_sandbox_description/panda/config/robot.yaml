@@ -1,0 +1,12 @@
+# Robot config for generic code (design spec "Robot Description and Config").
+# The single source of joint/frame names and the home pose: code never contains these values.
+# The MJCF keyframe named `home` must equal `home` below (test/test_panda_mjcf.py checks it).
+# Camera names are added with the cameras (M5).
+arm_joints: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5, panda_joint6, panda_joint7]
+base_frame: panda_link0
+ee_frame: panda_hand_tcp
+gripper:
+  type: parallel
+  joint: panda_finger_joint1
+  max_width: 0.08 # m, both fingers fully open (0.04 each)
+home: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]

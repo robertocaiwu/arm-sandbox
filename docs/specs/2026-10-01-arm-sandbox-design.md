@@ -6,7 +6,7 @@ Requirements, IDs (FR-x, NFR-x), the decisions log, and milestones are in [`../R
 
 ## Decisions
 
-Decisions from the requirements (D1–D12, short form):
+Decisions from the requirements (D1–D12, short form; D13–D17 are covered below):
 
 - MuJoCo, not Isaac Sim. ROS 2 Humble (Ubuntu 22.04) is the backbone.
 - Applied manipulation first (Phase A), robot learning second (Phase B).
@@ -23,6 +23,9 @@ Design decisions added by this spec:
 - **Sim backend: `mujoco_ros2_control` 0.1.2 (`ros-humble-mujoco-ros2-control`), D13.** Chosen by the M0 spike (Plan 01, Task 10). It provides the `ros2_control` system interface (`motor` actuators → `effort` command interface, `position` actuators → `position`), `/clock`, a camera plugin (color, depth, camera_info, points), `~/reset_world` (keyframe + joint/free-body pose overrides), `~/set_pause` / `~/step_simulation`, MuJoCo's Simulate viewer, and a `headless` mode. Verified headless with demo 01 (`/clock` ≈ 445 Hz, controllers active, camera topics up). `arm_sandbox_sim` only adds what's ours: scenes, the seeded randomized reset, and ground truth.
 - **No lockstep: physics free-runs on sim time.** The physics thread steps at `sim_speed_factor` × real time and publishes `/clock`. Controllers read the latest state each update. All nodes use `use_sim_time`. If the stack can't keep up, lower `sim_speed_factor` rather than expecting the sim to wait. (This replaces the original "lockstep" decision, which the chosen backend doesn't support. Determinism on the ROS path was already scoped to scene setup, below.)
 - **One MuJoCo version: 3.12.0, D14.** `mujoco_vendor` bundles MuJoCo 3.12.0, so the pip bindings used by the Gymnasium path are pinned to the same version (`scripts/install_deps.sh`; checked by `tests/env/test_toolchain.py`).
+- **Gravity compensation is switchable, off by default, D15.** `sim.launch.py gravcomp:=true` sets MuJoCo `gravcomp` on the robot's bodies (scene composed at launch by `arm_sandbox_sim.scene`), which mirrors the real Panda, whose torque interface compensates gravity. With the default `false`, JTC's integral term (M1) and the custom controllers' g(q) from Pinocchio (M3) carry the load.
+- **Own URDF xacro, D16.** `panda.urdf.xacro` keeps upstream kinematics and takes meshes, inertials, ranges and torque limits from the Menagerie MJCF. `test_panda_urdf.py` checks FK (vs Pinocchio), limits and mass against the MJCF.
+- **Startup order.** Without gravity compensation the arm sags until a controller is active, and JTC holds the pose it sees on activation. `sim.launch.py` loads the arm and gripper controllers inactive. Then `activate_at_home` calls `/mujoco_ros2_control_node/reset_world` (`home` keyframe) and `switch_controller` back to back. A spawner started after the reset would leave about 2 s for the arm to fall. The sim can't be paused for this either, because the control loop sleeps on sim time.
 - **Hand-written kinematics, library dynamics.** FK, Jacobian, and IK are hand-written in C++/Eigen (the learning goal). The mass matrix, Coriolis, and gravity terms come from Pinocchio at first. A hand-written RNEA/CRBA is an optional stretch goal, tested against Pinocchio.
 - **Shared ROS-free control core.** Controller math (OSC, impedance, joint impedance) lives in a ROS-free C++ library. The `ros2_control` plugins wrap it, and pybind11 bindings expose it to the Phase B Gymnasium environment. Training and deployment use the same controller code (DRY, and a smaller gap between the two).
 - **Skills as ROS 2 actions.** `Pick`, `Place`, `MoveToPose`, and `Gripper` are action servers. The behavior tree, the VLM planner, and the eval runner all call the same actions. This is why `arm_sandbox_interfaces` exists.
@@ -55,8 +58,8 @@ Core loop (Phase A, M5): reset(seed) → cameras → perception publishes object
 
 ## Simulation (`arm_sandbox_sim`)
 
-- **Models.** URDF/xacro (ROS side) from upstream Franka / MoveIt resources. MJCF from MuJoCo Menagerie, changed to torque actuators. A unit test checks that URDF FK and MJCF FK agree on random configurations (the main risk of keeping two model files).
-- **Scene.** `scenes/base.xml` (table, lights, cameras) plus a per-task object include, composed at launch.
+- **Models.** URDF/xacro (ROS side) written for this project (D16) from upstream kinematics and the MJCF's meshes, inertials and limits. MJCF from MuJoCo Menagerie, renamed to the URDF names and changed to torque actuators. A unit test checks that URDF FK (Pinocchio) and MJCF FK agree on random configurations (the main risk of keeping two model files).
+- **Scene.** For now `arm_sandbox_description/<robot>/mjcf/scene.xml` (floor, lights). `arm_sandbox_sim.scene.compose_scene()` turns it into one file at launch (absolute asset paths, optional gravcomp, D15). The table, cameras and per-task objects are added to the composition in M4/M5.
 - **Command interfaces.** Arm joints: `effort` (MJCF `motor` actuators). Gripper: `position` (MJCF `position` actuator). State interfaces: `position`, `velocity`, `effort` for all joints. Configured in the URDF's `<ros2_control>` block with `mujoco_ros2_control/MujocoSystemInterface` and the `mujoco_model` parameter.
 - **Cameras.** `scene_camera` (fixed) and `wrist_camera`, defined in the MJCF and published by `mujoco_ros2_control_plugins/CameraPlugin` (color, depth, `camera_info`, points) at 15–30 Hz, 640×480. Uses EGL on the GPU, Mesa llvmpipe without one, or OSMesa in CI.
 - **Services.** Ours: `~/reset` (seed, randomization on/off), implemented in `arm_sandbox_sim` by sampling object and joint poses from the task YAML and calling `mujoco_ros2_control`'s `~/reset_world` with them as overrides. Needs a custom `.srv` in `arm_sandbox_interfaces`. Pause/step come from `mujoco_ros2_control` as is.
@@ -67,12 +70,15 @@ Core loop (Phase A, M5): reset(seed) → cameras → perception publishes object
 
 ```
 arm_sandbox_description/panda/
-  urdf/panda.urdf.xacro        # includes <ros2_control> block, selected by robot:=panda
-  mjcf/panda.xml               # torque-actuated
+  urdf/panda.urdf.xacro          # selected by robot:=panda; args mujoco_model, headless
+  urdf/panda.ros2_control.xacro  # <ros2_control> block (MujocoSystemInterface)
+  mjcf/panda.xml                 # torque-actuated, URDF names, `home` keyframe
+  mjcf/scene.xml
   config/robot.yaml
+arm_sandbox_bringup/config/panda_controllers.yaml
 ```
 
-`robot.yaml` is the single source for generic code:
+`robot.yaml` is the single source for generic code (cameras are added in M5):
 
 ```yaml
 arm_joints: [panda_joint1, ..., panda_joint7]
@@ -80,10 +86,9 @@ base_frame: panda_link0
 ee_frame: panda_hand_tcp
 gripper: {type: parallel, joint: panda_finger_joint1, max_width: 0.08}
 home: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
-cameras: {wrist: wrist_camera, scene: scene_camera}
 ```
 
-Launch loads it as parameters for every node. Code never contains these names. Adding a robot means adding a folder, its controllers YAML, and its MoveIt config.
+Launch files read it (so far `base_frame`, for gravity compensation); nodes get its values as parameters once they need them. Code never contains these names. Adding a robot means adding a folder, its controllers YAML, and its MoveIt config.
 
 ## Kinematics (`arm_sandbox_kinematics`)
 
@@ -151,7 +156,8 @@ language: "put the red cube in the bin"   # used by Phase B
 
 - C++ node using the Rerun C++ SDK. It subscribes only to standard topics (FR-14a): `/robot_description`, `/tf`, `/tf_static`, `/joint_states`, camera images and depth, `/scene/markers`, controller state topics, and `/display_planned_path`.
 - It logs the URDF once (Rerun's URDF loader), then transforms per update, images, markers as boxes, planned paths as line strips, and joint and controller-error time series.
-- The Rerun viewer runs as its own process (`rerun --serve-web`) in the container. The node connects to it over gRPC. With `network_mode: host`, open the web viewer in the host browser. Verified in M0 with Rerun 0.38.1 (`tests/env/test_rerun_web.py`): web viewer on port 9090 (`--web-viewer-port`), gRPC on 9876 (`--port`), and the C++/Python SDK default `connect_grpc()` reaches it.
+- Entity layout (Rerun 0.38): the URDF via Rerun's URDF loader under `/robot/<robot>/…` (one coordinate frame per link, zero-pose joints on `/tf_static`); each `/tf` transform as a `Transform3D` with parent/child frames on `ros/tf/<child>` (timeline `sim_time`), which moves the robot; `/tf_static` on `ros/tf_static/<child>` (static); `/joint_states` as `joint_states/<joint>/{position,velocity,effort}`. The Rerun C++ SDK comes from `install_deps.sh` (D17). `sim.launch.py rerun:=true` (default) starts `rerun --serve-web` and the bridge; `rerun_save:=<file.rrd>` records instead.
+- The Rerun viewer runs as its own process (`rerun --serve-web`) in the container. The node connects to it over gRPC. With `network_mode: host`, open the web viewer in the host browser at `http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy`. The `?url=` part tells the page which gRPC server to show; the bare `http://localhost:9090` opens Rerun's welcome page. `rerun --serve-web` prints this link at startup. Verified in M0 with Rerun 0.38.1 (`tests/env/test_rerun_web.py`): web viewer on port 9090 (`--web-viewer-port`), gRPC on 9876 (`--port`), and the C++/Python SDK default `connect_grpc()` reaches it.
 - Rerun 0.39 drops Python 3.10 (Humble's Python). The C++ bridge isn't affected, but the Python SDK in `/opt/rerun` stays on 0.38.x until the move to Jazzy, or until it gets its own newer Python.
 - Optional: `web_video_server` for plain camera video.
 
@@ -171,8 +177,8 @@ language: "put the red cube in the bin"   # used by Phase B
 
 - `scripts/install_deps.sh` is the single list of dependencies (ROS 2 Humble, MoveIt 2, `ros2_control`, Pinocchio, BehaviorTree.CPP, MuJoCo pinned via pip, the Rerun CLI). It runs on any Ubuntu 22.04 machine or container, and `docker/Dockerfile` (`ros:humble-ros-base`, overridable with `BASE_IMAGE`) runs it too, then adds the Claude Code CLI. Phase B adds a separate stage with PyTorch and LeRobot, so the Phase A image stays lean.
 - **Two Python worlds.** ROS 2 nodes run on the system Python with NumPy 1.x (`numpy<2`), because Humble's compiled bindings (e.g. pinocchio/eigenpy) are built against it. Tools that need NumPy 2 get their own venv: `rerun-sdk` lives in `/opt/rerun`, and only its `rerun` CLI is on `PATH`. The viz bridge uses the Rerun C++ SDK, so no ROS node imports the Python SDK. Phase B learning code (LeRobot) follows the same rule.
-- `docker/docker-compose.yml` (project name `arm-sandbox`), service `sandbox`: CPU-only by default so it runs on any PC, `network_mode: host`, `ipc: host`, X11 socket mount (works for WSLg and native Linux), repo mounted at `/workspace/arm-sandbox` on every PC, host `~/.claude` + `~/.claude.json` mounted (Claude Code sessions persist and move between PCs), and an idle `sleep infinity` command. The container user mirrors the host user (same name, UID, GID via build args; the base image's `ubuntu` user is removed), with passwordless sudo. The VS Code dev container attaches to it as that user.
-- **GPU is optional.** `scripts/select_gpu.sh` writes the gitignored `docker/docker-compose.local.yml`: the NVIDIA reservation plus `NVIDIA_DRIVER_CAPABILITIES=all` when Docker reports the `nvidia` runtime, otherwise an override that changes nothing (`GPU=auto|1|0`, from the environment or `docker/.env`). The Makefile and the single `.devcontainer/devcontainer.json` (`initializeCommand`) both run it and always use both compose files. Without a GPU, EGL renders on the CPU through Mesa llvmpipe (`libegl1` pulls in `libegl-mesa0` and `libgl1-mesa-dri`), verified with MuJoCo 3.14.0. That's enough for Phase A, but Phase B training needs the GPU PC.
+- `docker/docker-compose.yml` (project name `arm-sandbox`), service `sandbox`: CPU-only by default so it runs on any PC, `network_mode: host`, `ipc: host`, X11 socket mount (works for WSLg and native Linux), the repo's parent folder mounted at `/workspace` (the repo is cloned into a folder named `arm-sandbox`, so it is at `/workspace/arm-sandbox` on every PC, and sibling repos are visible too), host `~/.claude` + `~/.claude.json` mounted (Claude Code sessions persist and move between PCs), host `~/.gitconfig`, `~/.ssh`, `~/.config`, `~/.vim` and `~/.bashrc` mounted read-only, and an idle `sleep infinity` command. The container user mirrors the host user (same name, UID, GID via build args; the base image's `ubuntu` user is removed), with passwordless sudo. The VS Code dev container attaches to it as that user.
+- **GPU is optional.** `scripts/select_gpu.sh` writes the gitignored `docker/docker-compose.local.yml`: the NVIDIA reservation plus `NVIDIA_DRIVER_CAPABILITIES=all` when Docker reports the `nvidia` runtime, otherwise an override that changes nothing (`GPU=auto|1|0`, from the environment or `docker/.env`). The Makefile and the single `.devcontainer/devcontainer.json` (`initializeCommand`) both run it and always use both compose files. Without a GPU, EGL renders on the CPU through Mesa llvmpipe (`libegl1` pulls in `libegl-mesa0` and `libgl1-mesa-dri`), verified in M0 with MuJoCo 3.14.0, before the D14 pin to 3.12.0. That's enough for Phase A, but Phase B training needs the GPU PC.
 - Headless runs set `MUJOCO_GL=egl` (or `osmesa` in CI) and `viewer:=false`.
 
 ## Testing
@@ -198,7 +204,7 @@ arm-sandbox/
   docker/  (Dockerfile, docker-compose.yml)  scripts/  .devcontainer/
   .github/workflows/ci.yml
   Makefile
-  docs/  (REQUIREMENTS.md, PROJECT_STRUCTURE.md, specs/)
+  docs/  (REQUIREMENTS.md, PROJECT_STRUCTURE.md, specs/, plan/)
   results/                # eval outputs (gitignored)
 ```
 
