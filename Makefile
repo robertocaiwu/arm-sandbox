@@ -1,5 +1,5 @@
 # Host targets (need Docker):          build, up, shell, down (each runs select-gpu first)
-# Container targets (in dev container): smoke, test, viewer
+# Container targets (in dev container): smoke, test, viewer, start_sim
 SHELL := /bin/bash
 # GPU=auto (default) enables the NVIDIA GPU when Docker has the nvidia runtime; force with
 # `make up GPU=1` or `GPU=0`. scripts/select_gpu.sh writes the per-PC override file.
@@ -16,7 +16,7 @@ PYTHON := /usr/bin/python3
 # Robot folder in src/arm_sandbox_description (`make viewer ROBOT=<name>`).
 ROBOT ?= panda
 
-.PHONY: select-gpu build up shell down smoke test viewer
+.PHONY: select-gpu build up shell down smoke test viewer start_sim
 
 select-gpu:
 	scripts/select_gpu.sh
@@ -44,3 +44,7 @@ test:
 # Needs a display (WSLg or X11). Physics runs in the viewer; nothing commands the arm.
 viewer:
 	$(PYTHON) -m mujoco.viewer --mjcf=src/arm_sandbox_description/$(ROBOT)/mjcf/scene.xml
+
+# Container: run the sim. ARGS are launch arguments, e.g. make start_sim ARGS="viewer:=false gravcomp:=true"
+start_sim:
+	$(ROS_SETUP) && source install/setup.bash && ros2 launch arm_sandbox_bringup sim.launch.py $(ARGS)

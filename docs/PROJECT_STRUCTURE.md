@@ -162,8 +162,9 @@ description ◀── read by all (via robot.yaml / URDF), depends on nothing
 | `make smoke`   | container | Toolchain smoke tests (`tests/env/`)          |
 | `make test`    | container | `colcon build` + `colcon test`                |
 | `make viewer` | container | Native MuJoCo viewer on the robot scene, no ROS (`ROBOT=panda`) |
+| `make start_sim` | container | Run the sim (`ARGS="viewer:=false gravcomp:=true"`) |
 
-`make sim` and `make lint` are added by later plans.
+`make lint` is added by a later plan.
 
 ---
 

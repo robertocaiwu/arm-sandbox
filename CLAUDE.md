@@ -235,7 +235,8 @@ Inside the dev container (or after `scripts/install_deps.sh`):
 - `make smoke` - toolchain smoke tests (`tests/env/`)
 - `make test` - `colcon build` + `colcon test`
 - `make viewer` - open the robot's MuJoCo scene in the native viewer, no ROS (`make viewer ROBOT=panda`)
-- `make sim`, `make lint` - added by later plans
+- `make start_sim` - run the sim (`ros2 launch arm_sandbox_bringup sim.launch.py`); `make start_sim ARGS="viewer:=false gravcomp:=true"`
+- `make lint` - added by later plans
 
 The repo's parent folder is mounted at `/workspace`, so the repo must be cloned into a folder named `arm-sandbox`: it then always shows up at `/workspace/arm-sandbox` (the devcontainer's `workspaceFolder`), and sibling repos are reachable too. Host `~/.claude` is mounted into the container, so Claude Code sessions survive rebuilds and can move between PCs. The container user mirrors the host user (name, UID, GID). Local overrides (e.g. `MUJOCO_GL=osmesa`) go in `docker/.env`.
 

@@ -11,6 +11,7 @@ if(BUILD_TESTING)
   # Each launch test gets its own ROS domain, so sims started by tests of different packages
   # (colcon runs packages in parallel) or a `make sim` in another terminal can't interfere.
   add_launch_test(test/test_sim_bringup.py TIMEOUT 180 ENV ROS_DOMAIN_ID=41)
+  add_launch_test(test/test_arm_trajectory.py TIMEOUT 300 ENV ROS_DOMAIN_ID=42)
 endif()
 
 ament_package()
