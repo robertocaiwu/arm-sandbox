@@ -15,7 +15,7 @@ find_package(Eigen3 REQUIRED)
 find_package(urdfdom REQUIRED)
 
 # ROS-free library: only Eigen and urdfdom (design spec "Kinematics").
-add_library(${PROJECT_NAME} SHARED src/kinematic_chain.cpp)
+add_library(${PROJECT_NAME} SHARED src/kinematic_chain.cpp src/ik.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
@@ -47,7 +47,7 @@ if(BUILD_TESTING)
     COMMENT "Generating ${TEST_ROBOT}.urdf for the kinematics tests")
   add_custom_target(test_urdf ALL DEPENDS ${TEST_URDF})
 
-  foreach(test_name test_kinematic_chain)
+  foreach(test_name test_kinematic_chain test_ik)
     ament_add_gtest(${test_name} test/${test_name}.cpp)
     add_dependencies(${test_name} test_urdf)
     target_link_libraries(${test_name} ${PROJECT_NAME} pinocchio::pinocchio yaml-cpp)
