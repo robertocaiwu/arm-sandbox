@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>arm_sandbox_sim</name>
+  <version>0.1.0</version>
+  <description>MuJoCo scenes for arm-sandbox: composition at launch (later: seeded reset, ground truth).</description>
+  <maintainer email="robertocw_18@hotmail.com">Roberto Cai</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <!-- MuJoCo Python bindings come from pip (pinned by scripts/install_deps.sh, D14): no rosdep key. -->
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>arm_sandbox_description</test_depend>
+  <test_depend>python3-numpy</test_depend>
+  <test_depend>python3-yaml</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
