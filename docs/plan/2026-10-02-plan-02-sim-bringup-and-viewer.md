@@ -58,7 +58,7 @@ git switch -c feat/m1-sim-viewer <that branch>
 | `src/arm_sandbox_viz/` | New package. C++ `rerun_bridge` node, `config/rerun_bridge.yaml`, launch test |
 | `scripts/install_deps.sh` | Adds the Rerun C++ SDK build (`/opt/rerun_cpp_sdk`) |
 | `tests/env/test_toolchain.py` | Adds Rerun C++ SDK smoke tests |
-| `Makefile` | Adds `sim` |
+| `Makefile` | Adds `start_sim` |
 | `CLAUDE.md`, `docs/…`, package `README.md`s | Updated in Task 9 |
 
 ## Out of scope (later plans)
@@ -1232,7 +1232,7 @@ install(PROGRAMS scripts/activate_at_home DESTINATION lib/${PROJECT_NAME})
 if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
   # Each launch test gets its own ROS domain, so sims started by tests of different packages
-  # (colcon runs packages in parallel) or a `make sim` in another terminal can't interfere.
+  # (colcon runs packages in parallel) or a `make start_sim` in another terminal can't interfere.
   add_launch_test(test/test_sim_bringup.py TIMEOUT 180 ENV ROS_DOMAIN_ID=41)
 endif()
 
@@ -1603,11 +1603,11 @@ git commit -m "feat(bringup): Panda in MuJoCo behind ros2_control; reset to home
 - Test: `src/arm_sandbox_bringup/test/test_arm_trajectory.py`
 - Modify: `src/arm_sandbox_bringup/CMakeLists.txt` (register the test)
 - Modify: `src/arm_sandbox_bringup/config/panda_controllers.yaml` (only if gains need tuning)
-- Modify: `Makefile` (`sim` target)
+- Modify: `Makefile` (`start_sim` target)
 
 **Interfaces:**
 - Consumes: Task 4 launch, actions `/arm_controller/follow_joint_trajectory` (`control_msgs/action/FollowJointTrajectory`) and `/gripper_controller/gripper_cmd` (`control_msgs/action/GripperCommand`).
-- Produces: `make sim [ARGS="viewer:=false gravcomp:=true ..."]`.
+- Produces: `make start_sim [ARGS="viewer:=false gravcomp:=true ..."]`.
 
 - [ ] **Step 1: Write the test**
 
@@ -1783,25 +1783,27 @@ Change one joint at a time in `panda_controllers.yaml`:
 
 Rebuild isn't needed for YAML changes with `--symlink-install`. Restart the launch. Re-run `make test` until it passes. Put the final values and a one-line reason in the commit message.
 
-- [ ] **Step 4: Add `make sim`**
+- [ ] **Step 4: Add `make start_sim`**
 
-In the `Makefile`, add `sim` to `.PHONY` and append:
+In the `Makefile`, add `start_sim` to `.PHONY` and append:
 
 ```make
-# Container: run the sim. ARGS are launch arguments, e.g. make sim ARGS="viewer:=false gravcomp:=true"
-sim:
+# Container: run the sim. ARGS are launch arguments, e.g. make start_sim ARGS="viewer:=false gravcomp:=true"
+start_sim:
 	$(ROS_SETUP) && source install/setup.bash && ros2 launch arm_sandbox_bringup sim.launch.py $(ARGS)
 ```
 
-Also update the header comment's container target list: `# Container targets (in dev container): smoke, test, sim`.
+Also update the header comment's container target list: `# Container targets (in dev container): smoke, test, viewer, start_sim`.
 
-Run: `make sim ARGS="viewer:=false"` and stop it with Ctrl+C after "Configured and activated arm_controller".
+Document it where the other targets are listed: in `CLAUDE.md` ("Inside the dev container"), add `- \`make start_sim\` - run the sim (\`ros2 launch arm_sandbox_bringup sim.launch.py\`); \`make start_sim ARGS="viewer:=false gravcomp:=true"\`` and change `- \`make sim\`, \`make lint\` - added by later plans` to `- \`make lint\` - added by later plans`. In `docs/PROJECT_STRUCTURE.md`, add a Commands-table row `| \`make start_sim\` | container | Run the sim (\`ARGS="viewer:=false gravcomp:=true"\`) |` and change the note below the table to `\`make lint\` is added by a later plan.`
+
+Run: `make start_sim ARGS="viewer:=false"` and stop it with Ctrl+C after "Configured and activated arm_controller".
 Expected: no errors.
 
 - [ ] **Step 5: Watch it once** [container, needs a display]
 
 ```bash
-make sim   # native MuJoCo viewer opens; the arm stands in the home pose
+make start_sim   # native MuJoCo viewer opens; the arm stands in the home pose
 ```
 
 In a second terminal, send the `ros2 action send_goal` command from Step 3. Expected: the arm moves smoothly to the new pose in about 2 s and stays there. Ctrl+C the launch.
@@ -1810,7 +1812,7 @@ In a second terminal, send the `ros2 action send_goal` command from Step 3. Expe
 
 ```bash
 git add src/arm_sandbox_bringup Makefile
-git commit -m "test(bringup): arm follows a joint trajectory and gripper moves, with and without gravcomp; make sim"
+git commit -m "test(bringup): arm follows a joint trajectory and gripper moves, with and without gravcomp; make start_sim"
 ```
 
 ---
@@ -2529,13 +2531,13 @@ Expected: 0 failures across all packages (`test_panda_mjcf`, `test_panda_urdf`, 
 - [ ] **Step 4: M0 check — the same sim in the browser and the native viewer** [container + host]
 
 ```bash
-make sim   # [container] native MuJoCo viewer opens; rerun --serve-web starts
+make start_sim   # [container] native MuJoCo viewer opens; rerun --serve-web starts
 ```
 
 On the host, open `http://localhost:9090`. Expected: the colored Panda in the home pose, plus `joint_states/...` time series. In a second container terminal, send the trajectory goal from Task 5, Step 3.
 Expected: the arm moves **in both viewers at the same time**, and the joint plots in Rerun follow. This is M0's "done when" (REQUIREMENTS §7).
 
-Optional, for the milestone video: record the screen while doing this, or replay a recording with `make sim ARGS="rerun_save:=/tmp/m0.rrd"` and then `rerun /tmp/m0.rrd`.
+Optional, for the milestone video: record the screen while doing this, or replay a recording with `make start_sim ARGS="rerun_save:=/tmp/m0.rrd"` and then `rerun /tmp/m0.rrd`.
 
 Ctrl+C the launch.
 
@@ -2631,14 +2633,14 @@ home: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
 - Status note at the top: replace with `> **Status: M0 and M1 done (Plan 02).** These exist: the dev environment, \`tests/env/\`, \`arm_sandbox_description\` (Panda MJCF, URDF xacro, robot.yaml), \`arm_sandbox_sim\` (scene composition only), \`arm_sandbox_bringup\` (sim launch, controllers), and \`arm_sandbox_viz\` (Rerun bridge). Everything else is the target layout from \`docs/REQUIREMENTS.md\` (§6). Update it as packages are created.`
 - Packages table, `arm_sandbox_sim` row, Lang column: `Python (C++ later)`. Purpose: `Scene composition at launch (gravcomp, D15); later reset/randomize services, ground truth`.
 - Project tree under `panda/`: remove the `meshes/` line (meshes live in `mjcf/assets/`).
-- Commands table: add `| \`make sim\`     | container | Run the sim (\`ARGS="viewer:=false gravcomp:=true rerun:=false"\`) |`, and change the note below it to `\`make lint\` is added by a later plan.`
+- Commands table: change the `make start_sim` row (added in Task 5) to `| \`make start_sim\` | container | Run the sim: native viewer + Rerun (\`ARGS="viewer:=false gravcomp:=true rerun:=false"\`) |`, and change the note below the table to `\`make lint\` is added by a later plan.`
 - Configuration → Robot selection: add `- Launch arguments of \`sim.launch.py\`: \`robot\`, \`viewer\`, \`gravcomp\`, \`rerun\`, \`rerun_save\``.
 
 - [ ] **Step 4: `CLAUDE.md`**
 
-- Status line: `> **Status:** M0 and M1 done (Plans 01–02): dev environment, \`arm_sandbox_description\` (MJCF, URDF, robot.yaml), \`arm_sandbox_sim\` (scene composition), \`arm_sandbox_bringup\` (\`make sim\`), \`arm_sandbox_viz\` (Rerun bridge). Next: M2 (kinematics). Every other package and command below is still the **plan** from \`docs/REQUIREMENTS.md\`. Update this file as they become real.`
-- "Inside the dev container" list: replace `- \`make sim\`, \`make lint\` - added by later plans` with `- \`make sim\` - run the sim (native viewer + Rerun at http://localhost:9090); \`make sim ARGS="viewer:=false gravcomp:=true"\`` and `- \`make lint\` - added by a later plan`.
-- "Development mode" → Rerun bullet: `- **Rerun web viewer**: http://localhost:9090, started by \`make sim\` (\`rerun:=false\` to skip)`.
+- Status line: `> **Status:** M0 and M1 done (Plans 01–02): dev environment, \`arm_sandbox_description\` (MJCF, URDF, robot.yaml), \`arm_sandbox_sim\` (scene composition), \`arm_sandbox_bringup\` (\`make start_sim\`), \`arm_sandbox_viz\` (Rerun bridge). Next: M2 (kinematics). Every other package and command below is still the **plan** from \`docs/REQUIREMENTS.md\`. Update this file as they become real.`
+- "Inside the dev container" list: change the `make start_sim` line (added in Task 5) to `- \`make start_sim\` - run the sim (native viewer + Rerun at http://localhost:9090); \`make start_sim ARGS="viewer:=false gravcomp:=true"\``, and change `- \`make lint\` - added by later plans` to `- \`make lint\` - added by a later plan`.
+- "Development mode" → Rerun bullet: `- **Rerun web viewer**: http://localhost:9090, started by \`make start_sim\` (\`rerun:=false\` to skip)`.
 
 - [ ] **Step 5: Package READMEs** (short, theory first, NFR-6)
 
@@ -2695,8 +2697,8 @@ The module is ROS-free so the Phase B Gymnasium environment loads exactly the sa
 
 Top-level launch files and per-robot controller configs.
 
-    make sim                                  # = ros2 launch arm_sandbox_bringup sim.launch.py
-    make sim ARGS="viewer:=false gravcomp:=true rerun:=false"
+    make start_sim                                  # = ros2 launch arm_sandbox_bringup sim.launch.py
+    make start_sim ARGS="viewer:=false gravcomp:=true rerun:=false"
 
 Arguments: `robot` (default `panda`), `viewer` (native MuJoCo window), `gravcomp` (D15), `rerun`
 (web viewer at http://localhost:9090), `rerun_save` (record to a `.rrd` file instead).
@@ -2739,7 +2741,7 @@ The Rerun C++ SDK is installed by `scripts/install_deps.sh` (D17).
 
 ```bash
 grep -n "D15\|D16\|D17" docs/REQUIREMENTS.md docs/specs/2026-10-01-arm-sandbox-design.md   # Expected: hits in both
-grep -n "make sim" CLAUDE.md docs/PROJECT_STRUCTURE.md   # Expected: hits in both
+grep -n "make start_sim" CLAUDE.md docs/PROJECT_STRUCTURE.md   # Expected: hits in both
 make test    # Expected: still 0 failures
 git add CLAUDE.md docs src/*/README.md
 git commit -m "docs: record D15-D17, document sim bring-up and viewer, add package READMEs"
@@ -2751,6 +2753,6 @@ git push -u origin feat/m1-sim-viewer
 ## Done when
 
 - `make smoke` and `make test` pass in the dev container, with no compiler warnings.
-- `make sim` shows the Panda in the native MuJoCo viewer **and** at `http://localhost:9090` at the same time, and a `FollowJointTrajectory` goal moves it in both (**M0**).
+- `make start_sim` shows the Panda in the native MuJoCo viewer **and** at `http://localhost:9090` at the same time, and a `FollowJointTrajectory` goal moves it in both (**M0**).
 - The arm follows a joint trajectory through `ros2_control` with `gravcomp:=false` and `true`, and the robot is selected by `robot:=panda` (**M1**).
 - D15–D17 are recorded; CLAUDE.md, PROJECT_STRUCTURE.md, and the spec match the code. Next: Plan 03 (M2, hand-written kinematics checked against Pinocchio, reach task).
