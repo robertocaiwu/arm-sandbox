@@ -12,6 +12,7 @@ if(BUILD_TESTING)
   # (colcon runs packages in parallel) or a `make sim` in another terminal can't interfere.
   add_launch_test(test/test_sim_bringup.py TIMEOUT 180 ENV ROS_DOMAIN_ID=41)
   add_launch_test(test/test_arm_trajectory.py TIMEOUT 300 ENV ROS_DOMAIN_ID=42)
+  add_launch_test(test/test_sim_recording.py TIMEOUT 180 ENV ROS_DOMAIN_ID=44)
 endif()
 
 ament_package()

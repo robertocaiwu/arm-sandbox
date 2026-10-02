@@ -50,7 +50,7 @@ def generate_test_description(gravcomp: str) -> LaunchDescription:
     sim_launch = Path(get_package_share_directory("arm_sandbox_bringup")) / "launch" / "sim.launch.py"
     sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(str(sim_launch)),
-        launch_arguments={"robot": ROBOT, "viewer": "false", "gravcomp": gravcomp}.items(),
+        launch_arguments={"robot": ROBOT, "viewer": "false", "rerun": "false", "gravcomp": gravcomp}.items(),
     )
     return LaunchDescription([sim, ReadyToTest()])
 

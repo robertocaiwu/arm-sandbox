@@ -1,6 +1,6 @@
 """Bring up one robot in MuJoCo behind ros2_control (milestone M1).
 
-    ros2 launch arm_sandbox_bringup sim.launch.py robot:=panda viewer:=true gravcomp:=false
+    ros2 launch arm_sandbox_bringup sim.launch.py robot:=panda viewer:=true gravcomp:=false rerun:=true
 
 Startup order: with a torque-controlled arm and no gravity compensation, the arm sags from the
 moment physics starts, because zero torque is commanded until a controller is active, and JTC holds
@@ -45,6 +45,33 @@ def require_file(path: Path, what: str) -> Path:
 
 def spawner(*arguments: str) -> Node:
     return Node(package="controller_manager", executable="spawner", arguments=list(arguments), output="screen")
+
+
+def rerun_actions(context: LaunchContext) -> list:
+    """The Rerun viewer (own process) and the bridge that feeds it (design spec "Visualization")."""
+    if not is_true(context, "rerun"):
+        return []
+    bridge_config = require_file(
+        Path(get_package_share_directory("arm_sandbox_viz")) / "config" / "rerun_bridge.yaml", "Rerun bridge config"
+    )
+    overrides = {"use_sim_time": True}
+    actions = []
+    save_path = LaunchConfiguration("rerun_save").perform(context)
+    if save_path:
+        overrides.update({"save_path": save_path, "grpc_url": ""})
+    else:
+        # Web viewer on http://localhost:9090, gRPC on 9876 (bridge config `grpc_url`).
+        actions.append(ExecuteProcess(cmd=["rerun", "--serve-web"], output="screen"))
+    actions.append(
+        Node(
+            package="arm_sandbox_viz",
+            executable="rerun_bridge",
+            name="rerun_bridge",
+            parameters=[str(bridge_config), overrides],
+            output="screen",
+        )
+    )
+    return actions
 
 
 def launch_setup(context: LaunchContext) -> list:
@@ -97,7 +124,7 @@ def launch_setup(context: LaunchContext) -> list:
         ],
         output="screen",
     )
-    return [
+    return rerun_actions(context) + [
         robot_state_publisher,
         control_node,
         joint_state_broadcaster,
@@ -115,6 +142,12 @@ def generate_launch_description() -> LaunchDescription:
                 "gravcomp",
                 default_value="false",
                 description="MuJoCo compensates the arm's gravity (like the real Panda); false: controllers do",
+            ),
+            DeclareLaunchArgument(
+                "rerun", default_value="true", description="Show the sim in the Rerun web viewer (http://localhost:9090)"
+            ),
+            DeclareLaunchArgument(
+                "rerun_save", default_value="", description="Record to this .rrd file instead of starting a viewer"
             ),
             OpaqueFunction(function=launch_setup),
         ]

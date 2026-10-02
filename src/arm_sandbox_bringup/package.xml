@@ -10,6 +10,7 @@
 
   <exec_depend>arm_sandbox_description</exec_depend>
   <exec_depend>arm_sandbox_sim</exec_depend>
+  <exec_depend>arm_sandbox_viz</exec_depend>
   <exec_depend>builtin_interfaces</exec_depend>
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>controller_manager_msgs</exec_depend>
