@@ -56,6 +56,12 @@ M0 environment working: `make smoke` passes, the Panda loads in MuJoCo, and the 
 - **Task 4** (`17f8408`): added the `ros2_control` block (effort arm, position gripper), the `arm_sandbox_bringup` package (`panda_controllers.yaml`, `activate_at_home`, `sim.launch.py` with the `robot`/`viewer`/`gravcomp` arguments), and a bring-up launch test.
 - **Task 5** (`509da51`, plan rename in `c928d6d`): the M1 acceptance test. The arm follows a joint trajectory and the gripper moves, with gravcomp off and on. The starting JTC gains needed no tuning. Added `make start_sim` (the plan originally called it `make sim`).
 
+- **Task 6** (`248656b`): `install_deps.sh` now builds the Rerun C++ SDK 0.38.1 into `/opt/rerun_cpp_sdk`. It skips the build if that version is already installed. Two smoke tests check the version match and that a small program compiles and links. **Open:** the Docker image still needs a host-side `make build`.
+- **Task 7** (`e72be52`): added the `arm_sandbox_viz` package with the C++ `rerun_bridge`, which logs `/robot_description`, `/tf`, `/tf_static` and `/joint_states`. It either streams over gRPC or records to an `.rrd` file, and refuses to start with both or neither set. Its launch test checks the contents of a recording.
+- **Task 8** (`67bb1ff`): `sim.launch.py` gained `rerun:=true` (starts `rerun --serve-web` and the bridge) and `rerun_save:=<file.rrd>`. A new full-stack test records the running Panda.
+- Fixed the web viewer address everywhere (`291bb48`). The bare `http://localhost:9090` only opens Rerun's welcome page; the link that shows the sim is `http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy`.
+- **Task 9** (`f17cf1c`): recorded D15–D17 in `REQUIREMENTS.md`, updated the spec, `PROJECT_STRUCTURE.md` and `CLAUDE.md`, and added READMEs for the four packages.
+
 ### Learned
 
 - `mujoco_ros2_control` 0.1.2 serves its services at `/mujoco_ros2_control_node/...`. Its own docs say `/ros2_control_node/...`, which is wrong for this version.
@@ -63,7 +69,8 @@ M0 environment working: `make smoke` passes, the Panda loads in MuJoCo, and the 
 - On Humble, `ros2_control_node` needs `~/robot_description` remapped to `/robot_description`.
 - The sim package is `arm_sandbox_sim`, but the launch file lives in `arm_sandbox_bringup`: `ros2 launch arm_sandbox_bringup sim.launch.py`, or `make start_sim`.
 - Rerun 0.38 resolves `package://` meshes from the ROS environment, even when the URDF comes from a string. Its named-frame `Transform3D` maps directly onto ROS TF (checked for Task 7).
+- The Rerun web page needs the `?url=` link above to show data; `rerun --serve-web` prints it at startup ("connect at …").
 
 ### State at end of session
 
-M1 is done: `make start_sim` brings the Panda up behind `ros2_control`, and it follows trajectories. `make test` reports 31 tests, 0 failures. Tasks 6–9 are still to do: the Rerun C++ SDK, the `arm_sandbox_viz` bridge, the viewer in the launch file (finishing M0), and the docs.
+Plan 02 is complete on `feat/m1-sim-viewer` (not pushed yet). M1 is done: the Panda runs behind `ros2_control` and follows trajectories. M0 is done in code: `make start_sim` shows the sim in the native viewer and in Rerun. The visual browser check is still for the user to do. `make test` reports 38 tests, 0 failures. Still open: the host-side `make build` for the Rerun C++ SDK, then a push and PR. Next: Plan 03, M2 (kinematics).
