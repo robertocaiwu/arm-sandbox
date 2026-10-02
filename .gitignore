@@ -26,3 +26,7 @@ __pycache__/
 docker/docker-compose.local.yml
 
 *.code-workspace
+# MuJoCo writes this when it hits an error (e.g. no display for the viewer)
+MUJOCO_LOG.TXT
+
+graphify-out/

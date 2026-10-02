@@ -2,7 +2,7 @@
 
 > Architectural map for AI agents and developers. Enables quick navigation and dependency analysis.
 >
-> **Status: planned.** No code exists yet. This is the target layout from `docs/REQUIREMENTS.md` (§6). Update it as packages are created.
+> **Status: partly built (M0 in progress).** These exist: the dev environment (`docker/`, `.devcontainer/`, `scripts/`, `Makefile`), `tests/env/`, and `src/arm_sandbox_description/` (Panda MJCF only so far). Everything else is the target layout from `docs/REQUIREMENTS.md` (§6). Update it as packages are created.
 
 ## Overview
 
@@ -41,7 +41,7 @@ arm-sandbox/
 ├── .github/workflows/               # CI: build + headless tests
 ├── docker/
 │   ├── Dockerfile                   # runs scripts/install_deps.sh; user mirrors the host user
-│   ├── docker-compose.yml           # `sandbox` dev service, CPU-only (host network, X11, ~/.claude mount)
+│   ├── docker-compose.yml           # `sandbox` dev service, CPU-only (host network, X11, repo parent at /workspace, ~/.claude mount)
 │   └── docker-compose.local.yml     # generated per PC by select_gpu.sh (GPU or CPU), gitignored
 ├── docs/
 │   ├── REQUIREMENTS.md              # requirements, decisions log, milestones

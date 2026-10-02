@@ -6,7 +6,7 @@ Requirements, IDs (FR-x, NFR-x), the decisions log, and milestones are in [`../R
 
 ## Decisions
 
-Decisions from the requirements (D1–D12, short form):
+Decisions from the requirements (D1–D12, short form; D13 and D14 are covered below):
 
 - MuJoCo, not Isaac Sim. ROS 2 Humble (Ubuntu 22.04) is the backbone.
 - Applied manipulation first (Phase A), robot learning second (Phase B).
@@ -171,8 +171,8 @@ language: "put the red cube in the bin"   # used by Phase B
 
 - `scripts/install_deps.sh` is the single list of dependencies (ROS 2 Humble, MoveIt 2, `ros2_control`, Pinocchio, BehaviorTree.CPP, MuJoCo pinned via pip, the Rerun CLI). It runs on any Ubuntu 22.04 machine or container, and `docker/Dockerfile` (`ros:humble-ros-base`, overridable with `BASE_IMAGE`) runs it too, then adds the Claude Code CLI. Phase B adds a separate stage with PyTorch and LeRobot, so the Phase A image stays lean.
 - **Two Python worlds.** ROS 2 nodes run on the system Python with NumPy 1.x (`numpy<2`), because Humble's compiled bindings (e.g. pinocchio/eigenpy) are built against it. Tools that need NumPy 2 get their own venv: `rerun-sdk` lives in `/opt/rerun`, and only its `rerun` CLI is on `PATH`. The viz bridge uses the Rerun C++ SDK, so no ROS node imports the Python SDK. Phase B learning code (LeRobot) follows the same rule.
-- `docker/docker-compose.yml` (project name `arm-sandbox`), service `sandbox`: CPU-only by default so it runs on any PC, `network_mode: host`, `ipc: host`, X11 socket mount (works for WSLg and native Linux), repo mounted at `/workspace/arm-sandbox` on every PC, host `~/.claude` + `~/.claude.json` mounted (Claude Code sessions persist and move between PCs), and an idle `sleep infinity` command. The container user mirrors the host user (same name, UID, GID via build args; the base image's `ubuntu` user is removed), with passwordless sudo. The VS Code dev container attaches to it as that user.
-- **GPU is optional.** `scripts/select_gpu.sh` writes the gitignored `docker/docker-compose.local.yml`: the NVIDIA reservation plus `NVIDIA_DRIVER_CAPABILITIES=all` when Docker reports the `nvidia` runtime, otherwise an override that changes nothing (`GPU=auto|1|0`, from the environment or `docker/.env`). The Makefile and the single `.devcontainer/devcontainer.json` (`initializeCommand`) both run it and always use both compose files. Without a GPU, EGL renders on the CPU through Mesa llvmpipe (`libegl1` pulls in `libegl-mesa0` and `libgl1-mesa-dri`), verified with MuJoCo 3.14.0. That's enough for Phase A, but Phase B training needs the GPU PC.
+- `docker/docker-compose.yml` (project name `arm-sandbox`), service `sandbox`: CPU-only by default so it runs on any PC, `network_mode: host`, `ipc: host`, X11 socket mount (works for WSLg and native Linux), the repo's parent folder mounted at `/workspace` (the repo is cloned into a folder named `arm-sandbox`, so it is at `/workspace/arm-sandbox` on every PC, and sibling repos are visible too), host `~/.claude` + `~/.claude.json` mounted (Claude Code sessions persist and move between PCs), host `~/.gitconfig`, `~/.ssh`, `~/.config`, `~/.vim` and `~/.bashrc` mounted read-only, and an idle `sleep infinity` command. The container user mirrors the host user (same name, UID, GID via build args; the base image's `ubuntu` user is removed), with passwordless sudo. The VS Code dev container attaches to it as that user.
+- **GPU is optional.** `scripts/select_gpu.sh` writes the gitignored `docker/docker-compose.local.yml`: the NVIDIA reservation plus `NVIDIA_DRIVER_CAPABILITIES=all` when Docker reports the `nvidia` runtime, otherwise an override that changes nothing (`GPU=auto|1|0`, from the environment or `docker/.env`). The Makefile and the single `.devcontainer/devcontainer.json` (`initializeCommand`) both run it and always use both compose files. Without a GPU, EGL renders on the CPU through Mesa llvmpipe (`libegl1` pulls in `libegl-mesa0` and `libgl1-mesa-dri`), verified in M0 with MuJoCo 3.14.0, before the D14 pin to 3.12.0. That's enough for Phase A, but Phase B training needs the GPU PC.
 - Headless runs set `MUJOCO_GL=egl` (or `osmesa` in CI) and `viewer:=false`.
 
 ## Testing
@@ -198,7 +198,7 @@ arm-sandbox/
   docker/  (Dockerfile, docker-compose.yml)  scripts/  .devcontainer/
   .github/workflows/ci.yml
   Makefile
-  docs/  (REQUIREMENTS.md, PROJECT_STRUCTURE.md, specs/)
+  docs/  (REQUIREMENTS.md, PROJECT_STRUCTURE.md, specs/, plan/)
   results/                # eval outputs (gitignored)
 ```
 
