@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>arm_sandbox_description</name>
+  <version>0.1.0</version>
+  <description>Robot models and per-robot config for arm-sandbox. The only place robot-specific values live.</description>
+  <maintainer email="robertocw_18@hotmail.com">Roberto Cai</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

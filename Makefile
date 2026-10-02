@@ -10,7 +10,8 @@ COMPOSE := docker compose -f docker/docker-compose.yml -f docker/docker-compose.
 export USER_UID := $(shell id -u)
 export USER_GID := $(shell id -g)
 ROS_SETUP := source /opt/ros/humble/setup.bash
-# ROS 2 uses the distro Python; never a conda/pyenv python3 that may be first on PATH.
+# ROS 2 uses the distro Python; never a conda/pyenv python3 that may be first on PATH
+# (pytest here, and CMake's Python3_EXECUTABLE for colcon builds).
 PYTHON := /usr/bin/python3
 
 .PHONY: select-gpu build up shell down smoke test
@@ -34,5 +35,5 @@ smoke:
 	$(ROS_SETUP) && $(PYTHON) -m pytest -q tests/env
 
 test:
-	$(ROS_SETUP) && colcon build --symlink-install \
+	$(ROS_SETUP) && colcon build --symlink-install --cmake-args -DPython3_EXECUTABLE=$(PYTHON) \
 		&& colcon test && colcon test-result --verbose

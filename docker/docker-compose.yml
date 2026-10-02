@@ -21,6 +21,7 @@ services:
     image: arm-sandbox:dev
     network_mode: host # ROS 2 DDS discovery + Rerun web viewer reachable on host ports
     ipc: host # DDS shared-memory transport
+    init: true # PID 1 reaps orphaned processes (ros2 launch children, the rerun viewer), no zombies
     environment:
       - DISPLAY=${DISPLAY:-:0}
       # EGL renders on the NVIDIA GPU when present, otherwise on the CPU through Mesa (llvmpipe).
