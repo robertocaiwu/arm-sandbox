@@ -60,7 +60,7 @@ def rerun_actions(context: LaunchContext) -> list:
     if save_path:
         overrides.update({"save_path": save_path, "grpc_url": ""})
     else:
-        # Web viewer on http://localhost:9090, gRPC on 9876 (bridge config `grpc_url`).
+        # Web viewer on http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy, gRPC on 9876 (bridge config `grpc_url`).
         actions.append(ExecuteProcess(cmd=["rerun", "--serve-web"], output="screen"))
     actions.append(
         Node(
@@ -144,7 +144,7 @@ def generate_launch_description() -> LaunchDescription:
                 description="MuJoCo compensates the arm's gravity (like the real Panda); false: controllers do",
             ),
             DeclareLaunchArgument(
-                "rerun", default_value="true", description="Show the sim in the Rerun web viewer (http://localhost:9090)"
+                "rerun", default_value="true", description="Show the sim in the Rerun web viewer (http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy)"
             ),
             DeclareLaunchArgument(
                 "rerun_save", default_value="", description="Record to this .rrd file instead of starting a viewer"

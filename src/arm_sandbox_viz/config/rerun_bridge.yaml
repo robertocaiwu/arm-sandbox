@@ -2,7 +2,7 @@ rerun_bridge:
   ros__parameters:
     application_id: arm_sandbox
     # The viewer started by sim.launch.py (`rerun --serve-web`) takes gRPC on 9876 and serves the web
-    # viewer on http://localhost:9090 (Rerun 0.38 defaults, checked by tests/env/test_rerun_web.py).
+    # viewer on http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy (Rerun 0.38 defaults, checked by tests/env/test_rerun_web.py).
     grpc_url: rerun+http://127.0.0.1:9876/proxy
     # Non-empty: record to this .rrd file instead of streaming (then grpc_url must be empty).
     save_path: ""

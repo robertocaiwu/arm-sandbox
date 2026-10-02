@@ -2047,7 +2047,7 @@ rerun_bridge:
   ros__parameters:
     application_id: arm_sandbox
     # The viewer started by sim.launch.py (`rerun --serve-web`) takes gRPC on 9876 and serves the web
-    # viewer on http://localhost:9090 (Rerun 0.38 defaults, checked by tests/env/test_rerun_web.py).
+    # viewer on http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy (Rerun 0.38 defaults, checked by tests/env/test_rerun_web.py).
     grpc_url: rerun+http://127.0.0.1:9876/proxy
     # Non-empty: record to this .rrd file instead of streaming (then grpc_url must be empty).
     save_path: ""
@@ -2490,7 +2490,7 @@ def rerun_actions(context: LaunchContext) -> list:
     if save_path:
         overrides.update({"save_path": save_path, "grpc_url": ""})
     else:
-        # Web viewer on http://localhost:9090, gRPC on 9876 (bridge config `grpc_url`).
+        # Web viewer on http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy, gRPC on 9876 (bridge config `grpc_url`).
         actions.append(ExecuteProcess(cmd=["rerun", "--serve-web"], output="screen"))
     actions.append(
         Node(
@@ -2510,7 +2510,7 @@ In `generate_launch_description()`, add after the `gravcomp` argument:
 
 ```python
             DeclareLaunchArgument(
-                "rerun", default_value="true", description="Show the sim in the Rerun web viewer (http://localhost:9090)"
+                "rerun", default_value="true", description="Show the sim in the Rerun web viewer (http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy)"
             ),
             DeclareLaunchArgument(
                 "rerun_save", default_value="", description="Record to this .rrd file instead of starting a viewer"
@@ -2534,7 +2534,7 @@ Expected: 0 failures across all packages (`test_panda_mjcf`, `test_panda_urdf`, 
 make start_sim   # [container] native MuJoCo viewer opens; rerun --serve-web starts
 ```
 
-On the host, open `http://localhost:9090`. Expected: the colored Panda in the home pose, plus `joint_states/...` time series. In a second container terminal, send the trajectory goal from Task 5, Step 3.
+On the host, open `http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy`. Expected: the colored Panda in the home pose, plus `joint_states/...` time series. In a second container terminal, send the trajectory goal from Task 5, Step 3.
 Expected: the arm moves **in both viewers at the same time**, and the joint plots in Rerun follow. This is M0's "done when" (REQUIREMENTS §7).
 
 Optional, for the milestone video: record the screen while doing this, or replay a recording with `make start_sim ARGS="rerun_save:=/tmp/m0.rrd"` and then `rerun /tmp/m0.rrd`.
@@ -2639,8 +2639,8 @@ home: [0.0, -0.785, 0.0, -2.356, 0.0, 1.571, 0.785]
 - [ ] **Step 4: `CLAUDE.md`**
 
 - Status line: `> **Status:** M0 and M1 done (Plans 01–02): dev environment, \`arm_sandbox_description\` (MJCF, URDF, robot.yaml), \`arm_sandbox_sim\` (scene composition), \`arm_sandbox_bringup\` (\`make start_sim\`), \`arm_sandbox_viz\` (Rerun bridge). Next: M2 (kinematics). Every other package and command below is still the **plan** from \`docs/REQUIREMENTS.md\`. Update this file as they become real.`
-- "Inside the dev container" list: change the `make start_sim` line (added in Task 5) to `- \`make start_sim\` - run the sim (native viewer + Rerun at http://localhost:9090); \`make start_sim ARGS="viewer:=false gravcomp:=true"\``, and change `- \`make lint\` - added by later plans` to `- \`make lint\` - added by a later plan`.
-- "Development mode" → Rerun bullet: `- **Rerun web viewer**: http://localhost:9090, started by \`make start_sim\` (\`rerun:=false\` to skip)`.
+- "Inside the dev container" list: change the `make start_sim` line (added in Task 5) to `- \`make start_sim\` - run the sim (native viewer + Rerun at http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy); \`make start_sim ARGS="viewer:=false gravcomp:=true"\``, and change `- \`make lint\` - added by later plans` to `- \`make lint\` - added by a later plan`.
+- "Development mode" → Rerun bullet: `- **Rerun web viewer**: http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy, started by \`make start_sim\` (\`rerun:=false\` to skip)`.
 
 - [ ] **Step 5: Package READMEs** (short, theory first, NFR-6)
 
@@ -2701,7 +2701,7 @@ Top-level launch files and per-robot controller configs.
     make start_sim ARGS="viewer:=false gravcomp:=true rerun:=false"
 
 Arguments: `robot` (default `panda`), `viewer` (native MuJoCo window), `gravcomp` (D15), `rerun`
-(web viewer at http://localhost:9090), `rerun_save` (record to a `.rrd` file instead).
+(web viewer at http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy), `rerun_save` (record to a `.rrd` file instead).
 
 ## Control
 
@@ -2753,6 +2753,6 @@ git push -u origin feat/m1-sim-viewer
 ## Done when
 
 - `make smoke` and `make test` pass in the dev container, with no compiler warnings.
-- `make start_sim` shows the Panda in the native MuJoCo viewer **and** at `http://localhost:9090` at the same time, and a `FollowJointTrajectory` goal moves it in both (**M0**).
+- `make start_sim` shows the Panda in the native MuJoCo viewer **and** at `http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy` at the same time, and a `FollowJointTrajectory` goal moves it in both (**M0**).
 - The arm follows a joint trajectory through `ros2_control` with `gravcomp:=false` and `true`, and the robot is selected by `robot:=panda` (**M1**).
 - D15–D17 are recorded; CLAUDE.md, PROJECT_STRUCTURE.md, and the spec match the code. Next: Plan 03 (M2, hand-written kinematics checked against Pinocchio, reach task).

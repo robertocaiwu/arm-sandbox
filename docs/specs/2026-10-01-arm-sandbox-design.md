@@ -151,7 +151,7 @@ language: "put the red cube in the bin"   # used by Phase B
 
 - C++ node using the Rerun C++ SDK. It subscribes only to standard topics (FR-14a): `/robot_description`, `/tf`, `/tf_static`, `/joint_states`, camera images and depth, `/scene/markers`, controller state topics, and `/display_planned_path`.
 - It logs the URDF once (Rerun's URDF loader), then transforms per update, images, markers as boxes, planned paths as line strips, and joint and controller-error time series.
-- The Rerun viewer runs as its own process (`rerun --serve-web`) in the container. The node connects to it over gRPC. With `network_mode: host`, open the web viewer in the host browser. Verified in M0 with Rerun 0.38.1 (`tests/env/test_rerun_web.py`): web viewer on port 9090 (`--web-viewer-port`), gRPC on 9876 (`--port`), and the C++/Python SDK default `connect_grpc()` reaches it.
+- The Rerun viewer runs as its own process (`rerun --serve-web`) in the container. The node connects to it over gRPC. With `network_mode: host`, open the web viewer in the host browser at `http://localhost:9090/?url=rerun%2Bhttp%3A%2F%2Flocalhost%3A9876%2Fproxy`. The `?url=` part tells the page which gRPC server to show; the bare `http://localhost:9090` opens Rerun's welcome page. `rerun --serve-web` prints this link at startup. Verified in M0 with Rerun 0.38.1 (`tests/env/test_rerun_web.py`): web viewer on port 9090 (`--web-viewer-port`), gRPC on 9876 (`--port`), and the C++/Python SDK default `connect_grpc()` reaches it.
 - Rerun 0.39 drops Python 3.10 (Humble's Python). The C++ bridge isn't affected, but the Python SDK in `/opt/rerun` stays on 0.38.x until the move to Jazzy, or until it gets its own newer Python.
 - Optional: `web_video_server` for plain camera video.
 
