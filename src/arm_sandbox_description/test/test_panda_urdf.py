@@ -107,3 +107,23 @@ def test_torque_limits_match(urdf_joints: dict, mj_model: mujoco.MjModel, robot_
 def test_total_mass_matches(urdf_xml: str, mj_model: mujoco.MjModel) -> None:
     urdf_mass = sum(float(mass.get("value")) for mass in ET.fromstring(urdf_xml).iter("mass"))
     assert urdf_mass == pytest.approx(mujoco.mj_getTotalmass(mj_model))
+
+
+def test_ros2_control_block_drives_mujoco(robot_config: dict) -> None:
+    urdf = xacro.process_file(
+        str(URDF_XACRO), mappings={"mujoco_model": "/tmp/composed_scene.xml", "headless": "true"}
+    ).toxml()
+    block = ET.fromstring(urdf).find("ros2_control")
+    assert block is not None
+    hardware = block.find("hardware")
+    assert hardware.findtext("plugin") == "mujoco_ros2_control/MujocoSystemInterface"
+    params = {param.get("name"): param.text for param in hardware.findall("param")}
+    assert params == {"mujoco_model": "/tmp/composed_scene.xml", "headless": "true", "initial_keyframe": "home"}
+
+    commands = {
+        joint.get("name"): [interface.get("name") for interface in joint.findall("command_interface")]
+        for joint in block.findall("joint")
+    }
+    expected = {joint: ["effort"] for joint in robot_config["arm_joints"]}
+    expected[robot_config["gripper"]["joint"]] = ["position"]
+    assert commands == expected

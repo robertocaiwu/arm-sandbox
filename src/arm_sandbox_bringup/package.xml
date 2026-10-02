@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>arm_sandbox_bringup</name>
+  <version>0.1.0</version>
+  <description>Top-level launch files and per-robot controller configs for arm-sandbox.</description>
+  <maintainer email="robertocw_18@hotmail.com">Roberto Cai</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>arm_sandbox_description</exec_depend>
+  <exec_depend>arm_sandbox_sim</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>controller_manager_msgs</exec_depend>
+  <exec_depend>gripper_controllers</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>joint_trajectory_controller</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>mujoco_ros2_control</exec_depend>
+  <exec_depend>mujoco_ros2_control_msgs</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <test_depend>action_msgs</test_depend>
+  <test_depend>control_msgs</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>launch_testing_ros</test_depend>
+  <test_depend>rclpy</test_depend>
+  <test_depend>rosgraph_msgs</test_depend>
+  <test_depend>sensor_msgs</test_depend>
+  <test_depend>trajectory_msgs</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
