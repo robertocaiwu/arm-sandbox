@@ -27,7 +27,13 @@ set_target_properties(reach_task PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(reach_task PUBLIC include)
 target_link_libraries(reach_task PUBLIC Eigen3::Eigen yaml-cpp)
 
-install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+# Thin ROS node on top of it.
+add_executable(reach_runner src/reach_runner.cpp)
+target_link_libraries(reach_runner reach_task arm_sandbox_kinematics::arm_sandbox_kinematics)
+ament_target_dependencies(reach_runner control_msgs rclcpp rclcpp_action sensor_msgs std_msgs tf2_eigen tf2_ros)
+
+install(TARGETS reach_runner DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
@@ -36,6 +42,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_reach_task reach_task)
   target_compile_definitions(test_reach_task PRIVATE
     REACH_TASK_FILE="${CMAKE_CURRENT_SOURCE_DIR}/config/tasks/reach.yaml")
+  # Full stack: sim + reach_runner. Own ROS domain (see arm_sandbox_bringup/CMakeLists.txt).
+  add_launch_test(test/test_reach.py TIMEOUT 300 ENV ROS_DOMAIN_ID=45)
 endif()
 
 ament_package()

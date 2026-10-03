@@ -165,6 +165,7 @@ description ◀── read by all (via robot.yaml / URDF), depends on nothing
 | `make test`    | container | `colcon build` + `colcon test`                |
 | `make viewer` | container | Native MuJoCo viewer on the robot scene, no ROS (`ROBOT=panda`) |
 | `make start_sim` | container | Run the sim: native viewer + Rerun (`ARGS="viewer:=false gravcomp:=true rerun:=false"`) |
+| `make start_reach` | container | Run the reach task against a running sim (`ARGS="task:=reach"`) |
 
 `make lint` is added by a later plan.
 
