@@ -4,7 +4,7 @@ A ROS 2 Humble + MuJoCo simulation sandbox built around a robot arm (Franka Pand
 
 **ALWAYS RESPOND IN ENGLISH**
 
-> **Status:** M0 and M1 done (Plans 01–02): dev environment, `arm_sandbox_description` (MJCF, URDF, robot.yaml), `arm_sandbox_sim` (scene composition), `arm_sandbox_bringup` (`make start_sim`), `arm_sandbox_viz` (Rerun bridge). Next: M2 (kinematics). Every other package and command below is still the **plan** from `docs/REQUIREMENTS.md`. Update this file as they become real.
+> **Status:** M0–M2 done (Plans 01–03): dev environment, `arm_sandbox_description`, `arm_sandbox_sim` (scene composition), `arm_sandbox_bringup` (`make start_sim`), `arm_sandbox_viz` (Rerun bridge), `arm_sandbox_kinematics` (FK/Jacobian/IK, checked against Pinocchio), `arm_sandbox_tasks` (reach task, `make start_reach`). Next: M3 (control). Every other package and command below is still the **plan** from `docs/REQUIREMENTS.md`. Update this file as they become real.
 
 ## 📋 Core Working Principles
 

@@ -2,7 +2,7 @@
 
 > Architectural map for AI agents and developers. Enables quick navigation and dependency analysis.
 >
-> **Status: M0 and M1 done (Plan 02).** These exist: the dev environment, `tests/env/`, `arm_sandbox_description` (Panda MJCF, URDF xacro, robot.yaml), `arm_sandbox_sim` (scene composition only), `arm_sandbox_bringup` (sim launch, controllers), and `arm_sandbox_viz` (Rerun bridge). Everything else is the target layout from `docs/REQUIREMENTS.md` (§6). Update it as packages are created.
+> **Status: M0–M2 done (Plans 01–03).** These exist: the dev environment, `tests/env/`, `arm_sandbox_description`, `arm_sandbox_sim` (scene composition only), `arm_sandbox_bringup`, `arm_sandbox_viz`, `arm_sandbox_kinematics`, and `arm_sandbox_tasks` (reach task only). Everything else is the target layout from `docs/REQUIREMENTS.md` (§6). Update it as packages are created.
 
 ## Overview
 
@@ -87,7 +87,7 @@ arm-sandbox/
 | `arm_sandbox_controllers`   | C++           | A     | `controller_interface` plugins: operational-space, impedance                              |
 | `arm_sandbox_moveit_config` | config        | A     | SRDF, kinematics solver, joint limits, planning pipelines                                 |
 | `arm_sandbox_perception`    | C++           | A     | RGB-D → object poses → TF + planning scene                                                |
-| `arm_sandbox_tasks`         | C++           | A     | Task configs (scene, success, time limit), BehaviorTree.CPP executive and skills          |
+| `arm_sandbox_tasks`         | C++           | A     | Task configs and runners. Now: the reach task (`reach_runner`); later BehaviorTree.CPP executive and skills |
 | `arm_sandbox_eval`          | Python        | A/B   | Run any approach × task × N seeds; metrics, videos, rosbags, CSV/JSON                     |
 | `arm_sandbox_viz`           | C++           | A     | Subscribes to standard topics, logs to Rerun (web viewer)                                 |
 | `arm_sandbox_learning`      | Python        | B     | Gymnasium-on-MuJoCo wrapper, LeRobotDataset collection, IL/RL/VLA policy nodes, VLM planner |
