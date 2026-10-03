@@ -1325,6 +1325,11 @@ TEST(ReachTask, RpyFollowsUrdfConvention)
   EXPECT_TRUE((down.linear() * Eigen::Vector3d::UnitZ()).isApprox(-Eigen::Vector3d::UnitZ()));
   const Eigen::Isometry3d yawed = pose_from_xyz_rpy(Eigen::Vector3d::Zero(), Eigen::Vector3d(0.0, 0.0, M_PI / 2));
   EXPECT_TRUE((yawed.linear() * Eigen::Vector3d::UnitX()).isApprox(Eigen::Vector3d::UnitY()));
+  // Two axes at once, so the order matters: Rz(90) Rx(90) maps y to +z; the reversed order
+  // Rx(90) Rz(90) would map it to -x. Single-axis cases can't tell the two apart.
+  const Eigen::Isometry3d rolled_and_yawed =
+    pose_from_xyz_rpy(Eigen::Vector3d::Zero(), Eigen::Vector3d(M_PI / 2, 0.0, M_PI / 2));
+  EXPECT_TRUE((rolled_and_yawed.linear() * Eigen::Vector3d::UnitY()).isApprox(Eigen::Vector3d::UnitZ()));
 }
 
 TEST(ReachTask, PoseErrorAndTolerance)
