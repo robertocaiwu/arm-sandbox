@@ -17,6 +17,18 @@
 
 **Spec:** [`../specs/2026-10-01-arm-sandbox-design.md`](../specs/2026-10-01-arm-sandbox-design.md), sections "Controllers" and "Kinematics", and [`../REQUIREMENTS.md`](../REQUIREMENTS.md) (M3, FR-19, D15). Plans 02–03 built the sim, the bring-up and the kinematics this plan uses.
 
+## Task overview
+
+Click a task to jump to it.
+
+- [Task 1: Allocation-free `fk` and `jacobian` overloads](#task-1-allocation-free-fk-and-jacobian-overloads): Allocation-free `fk`/`jacobian` overloads, proven with Eigen's no-malloc guard.
+- [Task 2: `RobotDynamics` — Pinocchio, reduced to the arm, with armature](#task-2-robotdynamics--pinocchio-reduced-to-the-arm-with-armature): `RobotDynamics`: Pinocchio reduced to the arm, with the MJCF's armature.
+- [Task 3: The control laws — OSC and Cartesian impedance](#task-3-the-control-laws--osc-and-cartesian-impedance): OSC and Cartesian impedance laws on a shared, allocation-free core; closed-loop tests.
+- [Task 4: The `ros2_control` plugins and the launch wiring](#task-4-the-ros2_control-plugins-and-the-launch-wiring): `ros2_control` plugins; `arm_controller:=` and `external_wrench:=` launch arguments; model matches MuJoCo.
+- [Task 5: The impedance controller is a spring (compliance test)](#task-5-the-impedance-controller-is-a-spring-compliance-test): Compliance test: a 10 N push deflects the impedance controller by F/k, and it springs back.
+- [Task 6: Reach with the task-space controllers, and the comparison](#task-6-reach-with-the-task-space-controllers-and-the-comparison): Reach with OSC and impedance (pose targets); all three controllers compared, both gravcomp modes.
+- [Task 7: Record the decisions, update the docs, add READMEs, log the session](#task-7-record-the-decisions-update-the-docs-add-readmes-log-the-session): Docs: decisions D20–D22, controllers README, top-level README, reading list, session log.
+
 ## Global Constraints
 
 - ROS 2 **Humble**, MuJoCo **3.12.0**, `mujoco_ros2_control` **0.1.2** (D7, D13, D14). Nothing new to install.

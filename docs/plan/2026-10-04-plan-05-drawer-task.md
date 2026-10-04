@@ -13,6 +13,16 @@
 
 **Spec:** [`../specs/2026-10-01-arm-sandbox-design.md`](../specs/2026-10-01-arm-sandbox-design.md), sections "Simulation" (scene composition, ground truth) and "Tasks and Executive" (task files, `joint_opened`), and [`../REQUIREMENTS.md`](../REQUIREMENTS.md) (FR-15 task 5, FR-16, M3). It **builds on Plan 04** ([`2026-10-04-plan-04-task-space-control.md`](2026-10-04-plan-04-task-space-control.md)): the impedance controller and `sim.launch.py arm_controller:=`.
 
+## Task overview
+
+Click a task to jump to it.
+
+- [Task 1: Task objects in the scene](#task-1-task-objects-in-the-scene): Task objects in the scene: `drawer.xml` attached under `drawer/` (`objects:=drawer`).
+- [Task 2: Shared runner plumbing (refactor, behaviour unchanged)](#task-2-shared-runner-plumbing-refactor-behaviour-unchanged): Refactor: shared `TaskRunner` base and task-file readers; reach behaviour unchanged.
+- [Task 3: The drawer task file and logic](#task-3-the-drawer-task-file-and-logic): Drawer task file and ROS-free logic (hook pose, pull path, `joint_opened`).
+- [Task 4: `drawer_runner` — open the drawer (M3 acceptance)](#task-4-drawer_runner--open-the-drawer-m3-acceptance): `drawer_runner` hooks the handle and pulls the drawer open with impedance; `make start_drawer`; M3 acceptance.
+- [Task 5: Record the decisions, update the docs, add READMEs, log the session](#task-5-record-the-decisions-update-the-docs-add-readmes-log-the-session): Docs: decisions D23–D25, READMEs, top-level README, reading list, session log.
+
 ## Global Constraints
 
 - Everything from Plan 04's Global Constraints still holds (versions, real-time rules, no robot-specific values or magic numbers in code, headless tests, own `ROS_DOMAIN_ID` per launch test). This plan adds 47.

@@ -10,6 +10,16 @@
 
 **Spec:** [`../specs/2026-10-01-arm-sandbox-design.md`](../specs/2026-10-01-arm-sandbox-design.md), sections "Kinematics" and "Tasks and Executive", and [`../REQUIREMENTS.md`](../REQUIREMENTS.md) (M2, FR-15 task 1, FR-18). Plan 02 ([`2026-10-02-plan-02-sim-bringup-and-viewer.md`](2026-10-02-plan-02-sim-bringup-and-viewer.md)) built the sim this plan drives.
 
+## Task overview
+
+Click a task to jump to it.
+
+- [Task 1: `KinematicChain` — FK, Jacobian, manipulability, checked against Pinocchio](#task-1-kinematicchain--fk-jacobian-manipulability-checked-against-pinocchio): `KinematicChain`: FK, geometric Jacobian, manipulability; matches Pinocchio to 1e-9.
+- [Task 2: Damped-least-squares IK with singularity and joint-limit handling](#task-2-damped-least-squares-ik-with-singularity-and-joint-limit-handling): Damped-least-squares IK: manipulability-scaled damping, SVD null space, joint clamping.
+- [Task 3: Reach task logic (`arm_sandbox_tasks`, ROS-free part)](#task-3-reach-task-logic-arm_sandbox_tasks-ros-free-part): `arm_sandbox_tasks`: ROS-free reach logic and `reach.yaml` (5 targets, 0.5 s hold).
+- [Task 4: `reach_runner` — the reach task solved in the sim (M2 acceptance)](#task-4-reach_runner--the-reach-task-solved-in-the-sim-m2-acceptance): `reach_runner`: IK → joint trajectory → TF check; `make start_reach`; M2 acceptance test.
+- [Task 5: Record the decisions, update the docs, add READMEs, log the session](#task-5-record-the-decisions-update-the-docs-add-readmes-log-the-session): Docs: decisions D18–D19, READMEs, session log.
+
 ## Global Constraints
 
 - ROS 2 **Humble**, MuJoCo **3.12.0**, `mujoco_ros2_control` **0.1.2** (D7, D13, D14). Nothing new to install: Eigen, urdfdom, Pinocchio, yaml-cpp and GoogleTest are already in the image.
