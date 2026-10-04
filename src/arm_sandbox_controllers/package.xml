@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>arm_sandbox_controllers</name>
+  <version>0.1.0</version>
+  <description>Task-space controllers for arm-sandbox: a ROS-free control core (operational-space and Cartesian impedance control, Pinocchio dynamics) and its ros2_control plugins.</description>
+  <maintainer email="robertocw_18@hotmail.com">Roberto Cai</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>arm_sandbox_kinematics</depend>
+  <depend>controller_interface</depend>
+  <depend>eigen</depend>
+  <depend>geometry_msgs</depend>
+  <depend>hardware_interface</depend>
+  <depend>pinocchio</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>realtime_tools</depend>
+  <depend>tf2_eigen</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>arm_sandbox_description</test_depend>
+  <test_depend>xacro</test_depend>
+  <test_depend>yaml_cpp_vendor</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
