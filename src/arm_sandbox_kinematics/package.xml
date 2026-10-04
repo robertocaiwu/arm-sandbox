@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>arm_sandbox_kinematics</name>
+  <version>0.1.0</version>
+  <description>ROS-free kinematics for serial arms: FK, geometric Jacobian, damped-least-squares IK, manipulability. Checked against Pinocchio.</description>
+  <maintainer email="robertocw_18@hotmail.com">Roberto Cai</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>eigen</depend>
+  <depend>urdfdom</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>arm_sandbox_description</test_depend>
+  <test_depend>pinocchio</test_depend>
+  <test_depend>xacro</test_depend>
+  <test_depend>yaml_cpp_vendor</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

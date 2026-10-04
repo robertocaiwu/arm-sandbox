@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>arm_sandbox_tasks</name>
+  <version>0.1.0</version>
+  <description>Task definitions and runners for arm-sandbox. M2: the reach task, solved with the hand-written IK.</description>
+  <maintainer email="robertocw_18@hotmail.com">Roberto Cai</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>arm_sandbox_kinematics</depend>
+  <depend>control_msgs</depend>
+  <depend>eigen</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>tf2_eigen</depend>
+  <depend>tf2_ros</depend>
+  <depend>yaml_cpp_vendor</depend>
+
+  <exec_depend>arm_sandbox_description</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>arm_sandbox_bringup</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -422,7 +422,7 @@ What each test proves:
 - [ ] **Step 3: Run the tests to see them fail**
 
 Run: `make test`
-Expected: the build of `arm_sandbox_kinematics` FAILS with `fatal error: arm_sandbox_kinematics/kinematic_chain.hpp: No such file or directory`.
+Expected: `arm_sandbox_kinematics` FAILS at CMake configure with `Cannot find source file` (`src/kinematic_chain.cpp`, listed in `add_library`, doesn't exist yet).
 
 - [ ] **Step 4: Write `KinematicChain`**
 
@@ -874,7 +874,7 @@ TEST_F(IkTest, RejectsInvalidOptions)
 - [ ] **Step 2: Run them to see them fail**
 
 Run: `make test`
-Expected: the build FAILS with `fatal error: arm_sandbox_kinematics/ik.hpp: No such file or directory`.
+Expected: `arm_sandbox_kinematics` FAILS at CMake configure with `Cannot find source file` (`src/ik.cpp` doesn't exist yet).
 
 - [ ] **Step 3: Write `solve_ik`**
 
@@ -1325,6 +1325,11 @@ TEST(ReachTask, RpyFollowsUrdfConvention)
   EXPECT_TRUE((down.linear() * Eigen::Vector3d::UnitZ()).isApprox(-Eigen::Vector3d::UnitZ()));
   const Eigen::Isometry3d yawed = pose_from_xyz_rpy(Eigen::Vector3d::Zero(), Eigen::Vector3d(0.0, 0.0, M_PI / 2));
   EXPECT_TRUE((yawed.linear() * Eigen::Vector3d::UnitX()).isApprox(Eigen::Vector3d::UnitY()));
+  // Two axes at once, so the order matters: Rz(90) Rx(90) maps y to +z; the reversed order
+  // Rx(90) Rz(90) would map it to -x. Single-axis cases can't tell the two apart.
+  const Eigen::Isometry3d rolled_and_yawed =
+    pose_from_xyz_rpy(Eigen::Vector3d::Zero(), Eigen::Vector3d(M_PI / 2, 0.0, M_PI / 2));
+  EXPECT_TRUE((rolled_and_yawed.linear() * Eigen::Vector3d::UnitY()).isApprox(Eigen::Vector3d::UnitZ()));
 }
 
 TEST(ReachTask, PoseErrorAndTolerance)
@@ -1360,7 +1365,7 @@ TEST(ReachTask, MoveDurationFollowsTheSlowestJoint)
 ```
 
 Run: `make test`
-Expected: the build FAILS with `fatal error: arm_sandbox_tasks/reach_task.hpp: No such file or directory`.
+Expected: `arm_sandbox_tasks` FAILS at CMake configure with `Cannot find source file` (`src/reach_task.cpp` doesn't exist yet).
 
 - [ ] **Step 3: Write the task logic**
 

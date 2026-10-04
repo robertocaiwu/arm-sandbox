@@ -1,0 +1,16 @@
+# Reach task (REQUIREMENTS FR-15, task 1): move the end effector (robot.yaml `ee_frame`) to each
+# target pose in turn. Poses are in the robot's base frame (robot.yaml `base_frame`): position in m,
+# rpy in rad, fixed axes x, y, z as in URDF. rpy [pi, 0, 0] points the gripper straight down.
+name: reach
+success:
+  type: ee_at_pose
+  position_tolerance: 0.005 # m
+  orientation_tolerance: 0.035 # rad (2 deg)
+  hold_s: 0.5 # must stay within tolerance this long (sim time)
+time_limit_s: 30.0 # per target: the move, plus settling into tolerance
+targets:
+  - {position: [0.45, 0.0, 0.35], rpy: [3.14159265, 0.0, 0.0]}
+  - {position: [0.40, 0.25, 0.30], rpy: [3.14159265, 0.0, 0.5]}
+  - {position: [0.40, -0.25, 0.45], rpy: [3.14159265, 0.0, -0.5]}
+  - {position: [0.55, 0.10, 0.20], rpy: [3.14159265, 0.0, 0.0]}
+  - {position: [0.307, 0.0, 0.487], rpy: [3.14159265, 0.0, 0.0]} # the home pose's TCP

@@ -94,12 +94,12 @@ Launch files read it (so far `base_frame`, for gravity compensation); nodes get 
 
 ROS-free C++17 library with Eigen. It is built from the URDF through `urdfdom`.
 
-- `KinematicChain(urdf, base, tip)`
+- `KinematicChain(urdf, base, tip)`: fixed joints folded into the next moving joint's origin; revolute, continuous and prismatic joints supported
 - `fk(q) → Isometry3d`
-- `jacobian(q) → Matrix<6,n>` (geometric, base frame)
-- `ik(target, q_seed, opts) → {q, converged, error}`: damped least squares with joint-limit clamping and an optional null-space task (stay near home / avoid limits)
-- `manipulability(q)`
-- Tests: FK∘IK round trip, Jacobian vs finite differences, FK and Jacobian vs Pinocchio at random configurations.
+- `jacobian(q) → Matrix<6,n>` (geometric, base frame, rows [linear; angular])
+- `solve_ik(chain, target, q_seed, opts) → {q, converged, errors, iterations}`: a free function, so the chain stays a pure model. Damped least squares with damping scaled by manipulability (zero away from singularities), an optional null-space task (stay near home) through the exact SVD projector, joint clamping at limits (D19)
+- `manipulability(q)` (Yoshikawa, √det(J Jᵀ))
+- Tests: FK and Jacobian vs Pinocchio at random configurations (1e-9), Jacobian vs finite differences, FK∘IK round trips, null-space effect, failure behavior. They run on the real Panda URDF, generated from the xacro at build time.
 
 ## Controllers (`arm_sandbox_controllers`)
 
@@ -141,6 +141,7 @@ time_limit_s: 30
 language: "put the red cube in the bin"   # used by Phase B
 ```
 
+- The reach task (M2) is `config/tasks/reach.yaml`: `targets` (position + rpy in the base frame) and `success: {type: ee_at_pose, position_tolerance, orientation_tolerance, hold_s}`. `reach_runner` (D18) solves each target with `solve_ik`, sends one JTC goal, and checks the pose from TF. Measured error after the hold: ≤ 4.1 mm without gravity compensation, ≤ 0.3 mm with it.
 - Success predicates are a small fixed set (`ee_at_pose`, `object_in_region`, `object_on_object`, `joint_opened`). They are evaluated on ground truth.
 - The executive is BehaviorTree.CPP 4 with one tree XML per task. Nodes: `DetectObjects`, `SelectGrasp` (top-down grasp from the object pose and yaw), `Pick`, `Place`, `OpenDrawer`, `CheckGrasp`. Recovery: `RetryUntilSuccessful` around `Pick`, and a `Fallback` to re-detect after a missed grasp.
 - Skill actions (`Pick`, `Place`, `MoveToPose`) live in `arm_sandbox_tasks` as action servers and are what the BT nodes call.

@@ -1,6 +1,6 @@
 # arm-sandbox — Requirements (Draft v0.4)
 
-> Status: fourth draft, 2026-10-01; D15–D17 added 2026-10-02 (Plan 02). Decisions made so far are in §10. Open questions are in §11.
+> Status: fourth draft, 2026-10-01; D15–D17 added 2026-10-02 (Plan 02), D18–D19 added 2026-10-02 (Plan 03). Decisions made so far are in §10. Open questions are in §11.
 
 ## 1. Purpose
 
@@ -252,6 +252,8 @@ Each milestone should end with something worth showing (a video plus numbers), s
 | D15 | Gravity compensation is a launch argument, `gravcomp:=false` by default: controllers compensate gravity; `true` makes MuJoCo compensate the arm (like the real Panda's torque interface) | Keeps gravity compensation a skill to build (M3) while allowing real-robot behavior; only the robot's bodies are compensated, never task objects |
 | D16 | Own Panda URDF xacro: upstream kinematics, Menagerie meshes, inertials, ranges and torque limits, plus `panda_hand_tcp` | The upstream URDF's `.dae` visuals don't load in Rerun and it has no TCP frame; one mesh source keeps URDF and MJCF in agreement (tested against Pinocchio) |
 | D17 | Rerun C++ SDK built from the release bundle by `install_deps.sh` into `/opt/rerun_cpp_sdk`, same version as the viewer | No apt package; one dependency list, offline colcon builds |
+| D18 | M2's reach task runs as a `reach_runner` node (IK → one JTC goal → TF check), not a `MoveToPose` action | Smallest proof of M2; skill actions come with MoveIt in M4, which would replace an IK-only action server anyway |
+| D19 | Analytic IK deferred; M2 ships damped-least-squares IK (manipulability-scaled damping, SVD null-space task, joint clamping) | The spec specifies numerical IK; closed-form Panda IK (q7 as free parameter) is robot-specific and becomes a stretch item |
 
 ## 11. Open Questions
 

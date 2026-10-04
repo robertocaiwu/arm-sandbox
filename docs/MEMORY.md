@@ -74,3 +74,36 @@ M0 environment working: `make smoke` passes, the Panda loads in MuJoCo, and the 
 ### State at end of session
 
 Plan 02 is complete on `feat/m1-sim-viewer` (not pushed yet). M1 is done: the Panda runs behind `ros2_control` and follows trajectories. M0 is done in code: `make start_sim` shows the sim in the native viewer and in Rerun. The visual browser check is still for the user to do. `make test` reports 38 tests, 0 failures. Still open: the host-side `make build` for the Rerun C++ SDK, then a push and PR. Next: Plan 03, M2 (kinematics).
+
+---
+
+## Session — 2026-10-03
+
+**Plan:** [Plan 03 — Kinematics (M2) and the Reach Task](plan/2026-10-02-plan-03-kinematics-and-reach.md). Branch `feat/kinematics`.
+
+### Decisions (recorded as D18–D19 in this session's docs commit)
+
+- **D18:** the reach task runs as a `reach_runner` node (IK → one JTC goal → TF check), not a `MoveToPose` action. Skill actions come with MoveIt in M4.
+- **D19:** analytic IK is deferred. M2 ships damped-least-squares IK.
+
+### Changes
+
+- Plan 02 merged to `master` as PR #3 (`c2c5fb7`), and Plan 03 as PR #4 (`1bb018d`). Plan 03 was written on 2026-10-02 from code built and run in a scratch workspace first (63 tests).
+- **Task 1** (`e8e4994`): the `arm_sandbox_kinematics` package and `KinematicChain` (FK, geometric Jacobian, manipulability; Eigen + urdfdom, no ROS). The tests run on the real Panda URDF, which CMake generates from the xacro. FK and the Jacobian match Pinocchio to 1e-9, and the Jacobian also matches finite differences.
+- **Task 2** (`1f88d39`): `solve_ik`, damped least squares with damping scaled by manipulability, an SVD null-space pull towards home, and joint clamping. Round trips from a nearby seed: 200/200; from home: 82.5% (floor 80%). The IK test binary takes about 0.6 s.
+- Added `docs/LEARNING_RESOURCES.md`, background reading per plan (`71a5bfb`).
+- **Task 3** (`c4218cc`): the `arm_sandbox_tasks` package with the ROS-free reach logic (task file, rpy poses, pose error, hold, move timing) and `config/tasks/reach.yaml`.
+- **Task 4** (`336fe55`): `reach_runner`, `reach.launch.py`, `make start_reach`, and the end-to-end test in both gravcomp modes. All 5 targets are reached. Error after the 0.5 s hold: 1.6–4.1 mm with gravcomp off, 0.1–0.3 mm with it on.
+- **Task 5** (this session's docs commit): D18–D19, the spec's Kinematics and Tasks sections, `PROJECT_STRUCTURE.md`, the `CLAUDE.md` status, and READMEs for `arm_sandbox_kinematics` and `arm_sandbox_tasks`.
+
+### Learned
+
+- **Plant a bug to test the tests.** A deliberately reversed roll/pitch/yaw order passed all the original task tests, because they only rotated about one axis, where order doesn't matter. Added a two-axis case (Task 3) and synced Plan 03. The same check showed that the Jacobian, joint-clamping and null-space tests each catch their own bug.
+- **The red step fails at CMake configure** with `Cannot find source file` (the `.cpp` listed in CMake doesn't exist yet), before any "missing header" compile error. Plan 03 now says so.
+- **`ros2 launch` (and `make start_reach`) exits 0 even when `reach_runner` exits 1.** The launch test is fine, because it checks the runner's own exit code. A shell script would need the launch to pass the code through (not done yet).
+- **`mujoco_ros2_control` starts its MuJoCo window with both side panels hidden** (`ui0_enable`/`ui1_enable = false` in `mujoco_simulation.cpp`). Tab and Shift+Tab bring them back. The Control sliders don't move the arm, because `ros2_control` overwrites the actuator controls every update; use `ros2 action send_goal`.
+- **Testing a temporary task file** with `--symlink-install` leaves a dangling symlink in `install/` after the source file is deleted. Remove it by hand.
+
+### State at end of session
+
+M2 is done: `make start_sim` + `make start_reach` reaches all 5 targets with the hand-written IK, and `make test` reports 63 tests, 0 failures. Still open: the M2 demo video (watch it in both viewers), pushing `feat/kinematics` and opening a PR, and the host-side `make build` for the Rerun C++ SDK (from Plan 02). Next: Plan 04, M3 (operational-space / impedance control with Pinocchio dynamics, drawer task).
