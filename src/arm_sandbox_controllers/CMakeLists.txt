@@ -32,7 +32,16 @@ target_include_directories(control_core PUBLIC
 target_link_libraries(control_core PUBLIC
   arm_sandbox_kinematics::arm_sandbox_kinematics Eigen3::Eigen pinocchio::pinocchio)
 
+# Thin ros2_control plugins on top of the core.
+add_library(task_space_controllers SHARED src/task_space_controller.cpp)
+target_link_libraries(task_space_controllers control_core)
+ament_target_dependencies(task_space_controllers
+  controller_interface geometry_msgs hardware_interface pluginlib rclcpp rclcpp_lifecycle realtime_tools tf2_eigen)
+pluginlib_export_plugin_description_file(controller_interface arm_sandbox_controllers.xml)
+
 install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
+install(TARGETS task_space_controllers
+  ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(TARGETS control_core EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
