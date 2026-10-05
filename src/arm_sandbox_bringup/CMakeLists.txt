@@ -16,7 +16,7 @@ if(BUILD_TESTING)
   add_launch_test(test/test_sim_bringup.py TIMEOUT 180 ENV ROS_DOMAIN_ID=41)
   add_launch_test(test/test_arm_trajectory.py TIMEOUT 300 ENV ROS_DOMAIN_ID=42)
   add_launch_test(test/test_sim_recording.py TIMEOUT 180 ENV ROS_DOMAIN_ID=44)
-  # add_launch_test(test/test_impedance_compliance.py TIMEOUT 180 ENV ROS_DOMAIN_ID=46)  # Task 5
+  add_launch_test(test/test_impedance_compliance.py TIMEOUT 180 ENV ROS_DOMAIN_ID=46)
 endif()
 
 ament_package()
