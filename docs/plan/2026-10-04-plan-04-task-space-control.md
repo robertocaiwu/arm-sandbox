@@ -3282,6 +3282,8 @@ git commit -m "feat(tasks): reach with the task-space controllers (pose targets)
 
 - [ ] **Step 4: `src/arm_sandbox_controllers/README.md`**
 
+Added early, together with the package (after Task 4). Check it still matches the code (gains, measured numbers), and add the reach comparison from Task 6 under "The laws" if it isn't there. For reference, the README as added:
+
 ```markdown
 # arm_sandbox_controllers
 
