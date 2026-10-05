@@ -24,7 +24,7 @@ find_package(realtime_tools REQUIRED)
 find_package(tf2_eigen REQUIRED)
 
 # ROS-free control core: dynamics + task-space control laws.
-set(CONTROL_CORE_SOURCES src/robot_dynamics.cpp)
+set(CONTROL_CORE_SOURCES src/robot_dynamics.cpp src/task_space_control.cpp)
 add_library(control_core SHARED ${CONTROL_CORE_SOURCES})
 target_include_directories(control_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -56,13 +56,21 @@ if(BUILD_TESTING)
   add_custom_target(test_urdf ALL DEPENDS ${TEST_URDF})
   set(TEST_DEFINITIONS TEST_URDF_PATH="${TEST_URDF}" TEST_ROBOT_CONFIG_PATH="${TEST_ROBOT_DIR}/config/robot.yaml")
 
-  foreach(test_name test_robot_dynamics)
+  foreach(test_name test_robot_dynamics test_task_space_control)
     ament_add_gtest(${test_name} test/${test_name}.cpp)
     add_dependencies(${test_name} test_urdf)
     target_link_libraries(${test_name} control_core yaml-cpp)
     target_compile_definitions(${test_name} PRIVATE ${TEST_DEFINITIONS})
   endforeach()
 
+  # Real-time check: the control-core sources compiled into the test with Eigen's allocation
+  # guard on, and NDEBUG undefined so the guard's assert fires.
+  ament_add_gtest(test_realtime test/test_realtime.cpp ${CONTROL_CORE_SOURCES})
+  add_dependencies(test_realtime test_urdf)
+  target_include_directories(test_realtime PRIVATE include)
+  target_link_libraries(test_realtime arm_sandbox_kinematics::arm_sandbox_kinematics Eigen3::Eigen pinocchio::pinocchio yaml-cpp)
+  target_compile_definitions(test_realtime PRIVATE EIGEN_RUNTIME_NO_MALLOC ${TEST_DEFINITIONS})
+  target_compile_options(test_realtime PRIVATE -UNDEBUG)
 endif()
 
 ament_package()
