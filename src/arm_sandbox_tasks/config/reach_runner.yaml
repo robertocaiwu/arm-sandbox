@@ -1,11 +1,9 @@
-# reach_runner: solves each reach target with arm_sandbox_kinematics' IK and drives the arm there
-# through the joint trajectory controller. Robot names and the home pose come from robot.yaml
-# (passed in by reach.launch.py); the task file by its `task_file` parameter.
+# reach_runner: drives the arm to each reach target, either with arm_sandbox_kinematics' IK and the
+# joint trajectory controller, or by sending the pose to a task-space controller (OSC, impedance).
+# reach.launch.py passes the robot's names and home pose (robot.yaml), the task file, and the
+# motion mode and controller topics derived from its `controller` argument.
 reach_runner:
   ros__parameters:
-    arm_action: /arm_controller/follow_joint_trajectory
-    # JTC publishes its state only while active, so the first message means "ready".
-    controller_state_topic: /arm_controller/state
     startup_timeout_s: 60.0
     velocity_scale: 0.3 # fraction of each joint's URDF velocity limit (average speed of a move)
     min_move_duration_s: 1.0
