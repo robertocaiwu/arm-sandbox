@@ -2,12 +2,17 @@
 // trajectory controller. Thin ROS wrapper: the math is in arm_sandbox_kinematics, the task logic
 // in reach_task.hpp.
 //
-// For each target: IK from the current joint positions (null-space pull towards home) -> one
-// FollowJointTrajectory goal -> wait until TF shows the end effector within the task tolerance.
+// Two ways to move (parameter `motion`):
+// - joint_trajectory (M2): IK from the current joint positions (null-space pull towards home) ->
+//   one FollowJointTrajectory goal to the joint trajectory controller.
+// - pose_target (M3): publish the target pose to a task-space controller (OSC or impedance), which
+//   does the rest; no IK.
+// Either way, a target counts once TF shows the end effector held within the task tolerance.
 // Exits 0 if every target was reached, 1 otherwise.
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -17,6 +22,8 @@
 
 #include <control_msgs/action/follow_joint_trajectory.hpp>
 #include <control_msgs/msg/joint_trajectory_controller_state.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/twist_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
@@ -36,6 +43,8 @@ namespace
 using FollowJointTrajectory = control_msgs::action::FollowJointTrajectory;
 using Clock = std::chrono::steady_clock;
 constexpr auto kPollPeriod = std::chrono::milliseconds(20);
+constexpr const char * kJointTrajectory = "joint_trajectory";
+constexpr const char * kPoseTarget = "pose_target";
 
 Clock::duration seconds(double value)
 {
@@ -59,6 +68,12 @@ public:
     tf_buffer_(get_clock()),
     tf_listener_(tf_buffer_)
   {
+    const auto motion = declare_parameter<std::string>("motion", "");
+    if (motion != kJointTrajectory && motion != kPoseTarget) {
+      RCLCPP_FATAL(get_logger(), "motion must be '%s' or '%s', got '%s'", kJointTrajectory, kPoseTarget, motion.c_str());
+      throw std::invalid_argument("invalid motion");
+    }
+    use_pose_target_ = motion == kPoseTarget;
     const auto home = declare_parameter<std::vector<double>>("home", std::vector<double>{});
     if (arm_joints_.empty() || base_frame_.empty() || ee_frame_.empty() || home.size() != arm_joints_.size()) {
       RCLCPP_FATAL(get_logger(), "robot config missing: arm_joints, base_frame, ee_frame, home");
@@ -85,10 +100,20 @@ public:
     joint_states_sub_ = create_subscription<sensor_msgs::msg::JointState>(
       "/joint_states", rclcpp::SensorDataQoS(),
       [this](const sensor_msgs::msg::JointState & msg) { latest_joint_state_ = msg; });
-    controller_state_sub_ = create_subscription<control_msgs::msg::JointTrajectoryControllerState>(
-      declare_parameter<std::string>("controller_state_topic", ""), rclcpp::SensorDataQoS(),
-      [this](const control_msgs::msg::JointTrajectoryControllerState &) { controller_active_ = true; });
-    arm_client_ = rclcpp_action::create_client<FollowJointTrajectory>(this, declare_parameter<std::string>("arm_action", ""));
+    // Both controllers publish their state only while active, so the first message means "ready".
+    const auto state_topic = declare_parameter<std::string>("controller_state_topic", "");
+    if (use_pose_target_) {
+      pose_error_sub_ = create_subscription<geometry_msgs::msg::TwistStamped>(
+        state_topic, rclcpp::SystemDefaultsQoS(),
+        [this](const geometry_msgs::msg::TwistStamped &) { controller_active_ = true; });
+      target_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
+        declare_parameter<std::string>("pose_target_topic", ""), rclcpp::SystemDefaultsQoS());
+    } else {
+      jtc_state_sub_ = create_subscription<control_msgs::msg::JointTrajectoryControllerState>(
+        state_topic, rclcpp::SensorDataQoS(),
+        [this](const control_msgs::msg::JointTrajectoryControllerState &) { controller_active_ = true; });
+      arm_client_ = rclcpp_action::create_client<FollowJointTrajectory>(this, declare_parameter<std::string>("arm_action", ""));
+    }
   }
 
   /// Runs every target; true if all were reached.
@@ -96,8 +121,11 @@ public:
   {
     if (!wait_until([this] { return robot_description_.has_value(); }, "/robot_description") ||
         !wait_until([this] { return controller_active_; }, "the arm controller to become active") ||
-        !wait_until([this] { return current_positions().has_value(); }, "/joint_states with all arm joints") ||
-        !arm_client_->wait_for_action_server(seconds(startup_timeout_s_))) {
+        !wait_until([this] { return current_positions().has_value(); }, "/joint_states with all arm joints")) {
+      return false;
+    }
+    if (use_pose_target_ ? !wait_until([this] { return target_pub_->get_subscription_count() > 0; }, "the controller's target subscription")
+                         : !arm_client_->wait_for_action_server(seconds(startup_timeout_s_))) {
       return false;
     }
 
@@ -119,7 +147,18 @@ public:
 private:
   bool reach(const arm_sandbox_kinematics::KinematicChain & chain, const Eigen::Isometry3d & target, std::size_t index)
   {
-    const auto deadline = Clock::now() + seconds(task_.time_limit_s);
+    const auto start_time = Clock::now();
+    const auto deadline = start_time + seconds(task_.time_limit_s);
+    if (use_pose_target_) {
+      geometry_msgs::msg::PoseStamped msg;
+      msg.header.frame_id = base_frame_;
+      msg.header.stamp = now();
+      msg.pose = tf2::toMsg(target);
+      target_pub_->publish(msg);
+      // The controller moves the arm itself, so it may use the whole time limit to get there.
+      return hold_within_tolerance(target, index, deadline, start_time, "pose target");
+    }
+
     const Eigen::VectorXd start = *current_positions();
     const auto ik = arm_sandbox_kinematics::solve_ik(chain, target, start, ik_options_);
     if (!ik.converged) {
@@ -134,9 +173,18 @@ private:
       return false;
     }
 
-    // JTC's goal tolerance is per joint, so the pose keeps settling after it succeeds. The target
-    // counts as reached once the end effector stays within tolerance for hold_s of sim time.
-    const auto settle_deadline = std::min(deadline, Clock::now() + seconds(settle_timeout_s_) + seconds(task_.hold_s));
+    // JTC's goal tolerance is per joint, so the pose keeps settling after it succeeds.
+    char how[96];
+    std::snprintf(how, sizeof(how), "IK %d iterations, move %.2f s", ik.iterations, duration);
+    return hold_within_tolerance(
+      target, index, std::min(deadline, Clock::now() + seconds(settle_timeout_s_) + seconds(task_.hold_s)), start_time, how);
+  }
+
+  /// Waits until TF shows the end effector within the task tolerance for hold_s of sim time.
+  bool hold_within_tolerance(
+    const Eigen::Isometry3d & target, std::size_t index, Clock::time_point deadline, Clock::time_point start_time,
+    const std::string & how)
+  {
     PoseError error;
     std::optional<rclcpp::Time> within_since;
     while (true) {
@@ -148,12 +196,13 @@ private:
         } else if (!within_since) {
           within_since = now();
         } else if ((now() - *within_since).seconds() >= task_.hold_s) {
-          RCLCPP_INFO(get_logger(), "target %zu reached: %.4f m, %.4f rad (IK %d iterations, move %.2f s)",
-                      index, error.position, error.orientation, ik.iterations, duration);
+          const double elapsed = std::chrono::duration<double>(Clock::now() - start_time).count();
+          RCLCPP_INFO(get_logger(), "target %zu reached: %.4f m, %.4f rad in %.2f s (%s)",
+                      index, error.position, error.orientation, elapsed, how.c_str());
           return true;
         }
       }
-      if (Clock::now() > settle_deadline) {
+      if (Clock::now() > deadline) {
         RCLCPP_ERROR(get_logger(), "target %zu: not held within tolerance (%.4f m, %.4f rad)", index, error.position, error.orientation);
         return false;
       }
@@ -252,7 +301,10 @@ private:
 
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr robot_description_sub_;
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_states_sub_;
-  rclcpp::Subscription<control_msgs::msg::JointTrajectoryControllerState>::SharedPtr controller_state_sub_;
+  bool use_pose_target_ = false;
+  rclcpp::Subscription<control_msgs::msg::JointTrajectoryControllerState>::SharedPtr jtc_state_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr pose_error_sub_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_pub_;
   rclcpp_action::Client<FollowJointTrajectory>::SharedPtr arm_client_;
 };
 

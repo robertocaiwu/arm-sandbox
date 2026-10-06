@@ -2,7 +2,7 @@
 
 > Architectural map for AI agents and developers. Enables quick navigation and dependency analysis.
 >
-> **Status: M0–M2 done (Plans 01–03).** These exist: the dev environment, `tests/env/`, `arm_sandbox_description`, `arm_sandbox_sim` (scene composition only), `arm_sandbox_bringup`, `arm_sandbox_viz`, `arm_sandbox_kinematics`, and `arm_sandbox_tasks` (reach task only). Everything else is the target layout from `docs/REQUIREMENTS.md` (§6). Update it as packages are created.
+> **Status: M0–M2 done, M3 controllers done (Plans 01–04).** These exist: the dev environment, `tests/env/`, `arm_sandbox_description`, `arm_sandbox_sim` (scene composition only), `arm_sandbox_bringup`, `arm_sandbox_viz`, `arm_sandbox_kinematics`, `arm_sandbox_controllers`, and `arm_sandbox_tasks` (reach task only). Everything else is the target layout from `docs/REQUIREMENTS.md` (§6). Update it as packages are created.
 
 ## Overview
 
@@ -84,7 +84,7 @@ arm-sandbox/
 | `arm_sandbox_description`   | data          | A     | All robot-specific files, one folder per robot. The only place robot names appear         |
 | `arm_sandbox_sim`           | Python (C++ later) | A | Scene composition at launch (gravcomp, D15); later reset/randomize services, ground truth |
 | `arm_sandbox_kinematics`    | C++           | A     | ROS-free kinematics library (Eigen), unit-tested against Pinocchio                        |
-| `arm_sandbox_controllers`   | C++           | A     | `controller_interface` plugins: operational-space, impedance                              |
+| `arm_sandbox_controllers`   | C++           | A     | ROS-free control core (Pinocchio dynamics, OSC and Cartesian impedance laws) + ros2_control plugins |
 | `arm_sandbox_moveit_config` | config        | A     | SRDF, kinematics solver, joint limits, planning pipelines                                 |
 | `arm_sandbox_perception`    | C++           | A     | RGB-D → object poses → TF + planning scene                                                |
 | `arm_sandbox_tasks`         | C++           | A     | Task configs and runners. Now: the reach task (`reach_runner`); later BehaviorTree.CPP executive and skills |
@@ -129,7 +129,7 @@ description ◀── read by all (via robot.yaml / URDF), depends on nothing
 
 - Launch argument: `robot:=panda`. Resolves to `arm_sandbox_description/<robot>/`, its `ros2_control` YAML, and its MoveIt config
 - Adding a robot = adding a description folder + configs. No code changes
-- Launch arguments of `sim.launch.py`: `robot`, `viewer`, `gravcomp`, `rerun`, `rerun_save`
+- Launch arguments of `sim.launch.py`: `robot`, `viewer`, `gravcomp`, `rerun`, `rerun_save`, `arm_controller`, `external_wrench`
 
 ### Config files
 

@@ -110,57 +110,70 @@ void KinematicChain::check_size(const Eigen::VectorXd & q) const
   }
 }
 
+void KinematicChain::advance(std::size_t i, double value, Eigen::Isometry3d & transform) const
+{
+  const Joint & joint = joints_[i];
+  transform = transform * joint.origin;
+  if (joint.type == JointType::kRevolute) {
+    transform.rotate(Eigen::AngleAxisd(value, joint.axis));
+  } else {
+    transform.translate(value * joint.axis);
+  }
+}
+
 Eigen::Isometry3d KinematicChain::fk(const Eigen::VectorXd & q) const
 {
+  Eigen::Isometry3d pose;
+  fk(q, pose);
+  return pose;
+}
+
+void KinematicChain::fk(const Eigen::VectorXd & q, Eigen::Isometry3d & pose) const
+{
   check_size(q);
-  Eigen::Isometry3d transform = Eigen::Isometry3d::Identity();
+  pose = Eigen::Isometry3d::Identity();
   for (std::size_t i = 0; i < joints_.size(); ++i) {
-    const Joint & joint = joints_[i];
-    const double value = q[static_cast<Eigen::Index>(i)];
-    transform = transform * joint.origin;
-    if (joint.type == JointType::kRevolute) {
-      transform.rotate(Eigen::AngleAxisd(value, joint.axis));
-    } else {
-      transform.translate(value * joint.axis);
-    }
+    advance(i, q[static_cast<Eigen::Index>(i)], pose);
   }
-  return transform * tip_offset_;
+  pose = pose * tip_offset_;
 }
 
 Jacobian KinematicChain::jacobian(const Eigen::VectorXd & q) const
 {
+  Jacobian result(6, static_cast<Eigen::Index>(joints_.size()));
+  jacobian(q, result);
+  return result;
+}
+
+void KinematicChain::jacobian(const Eigen::VectorXd & q, Jacobian & jacobian) const
+{
   check_size(q);
-  // Joint axes and origins in the base frame, then the tip position.
-  std::vector<Eigen::Vector3d> axes(joints_.size());
-  std::vector<Eigen::Vector3d> origins(joints_.size());
+  if (static_cast<std::size_t>(jacobian.cols()) != joints_.size()) {
+    throw std::invalid_argument("KinematicChain: the Jacobian must have one column per joint");
+  }
+  // Two passes, so no per-joint storage is needed: first the tip position, then each joint's
+  // world axis and origin, which give its column directly.
+  Eigen::Isometry3d tip_pose;
+  fk(q, tip_pose);
+  const Eigen::Vector3d tip = tip_pose.translation();
+
   Eigen::Isometry3d transform = Eigen::Isometry3d::Identity();
   for (std::size_t i = 0; i < joints_.size(); ++i) {
     const Joint & joint = joints_[i];
-    const double value = q[static_cast<Eigen::Index>(i)];
-    transform = transform * joint.origin;
-    axes[i] = transform.linear() * joint.axis;
-    origins[i] = transform.translation();
-    if (joint.type == JointType::kRevolute) {
-      transform.rotate(Eigen::AngleAxisd(value, joint.axis));
-    } else {
-      transform.translate(value * joint.axis);
-    }
-  }
-  const Eigen::Vector3d tip = (transform * tip_offset_).translation();
-
-  Jacobian jacobian(6, static_cast<Eigen::Index>(joints_.size()));
-  for (std::size_t i = 0; i < joints_.size(); ++i) {
     const auto column = static_cast<Eigen::Index>(i);
-    if (joints_[i].type == JointType::kRevolute) {
+    transform = transform * joint.origin;
+    const Eigen::Vector3d axis = transform.linear() * joint.axis;
+    if (joint.type == JointType::kRevolute) {
       // A rotation about axis z through point p moves the tip with z x (tip - p).
-      jacobian.block<3, 1>(0, column) = axes[i].cross(tip - origins[i]);
-      jacobian.block<3, 1>(3, column) = axes[i];
+      jacobian.block<3, 1>(0, column) = axis.cross(tip - transform.translation());
+      jacobian.block<3, 1>(3, column) = axis;
+      transform.rotate(Eigen::AngleAxisd(q[column], joint.axis));
     } else {
-      jacobian.block<3, 1>(0, column) = axes[i];
+      jacobian.block<3, 1>(0, column) = axis;
       jacobian.block<3, 1>(3, column) = Eigen::Vector3d::Zero();
+      transform.translate(q[column] * joint.axis);
     }
   }
-  return jacobian;
 }
 
 double KinematicChain::manipulability(const Eigen::VectorXd & q) const

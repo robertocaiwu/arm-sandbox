@@ -107,3 +107,42 @@ Plan 02 is complete on `feat/m1-sim-viewer` (not pushed yet). M1 is done: the Pa
 ### State at end of session
 
 M2 is done: `make start_sim` + `make start_reach` reaches all 5 targets with the hand-written IK, and `make test` reports 63 tests, 0 failures. Still open: the M2 demo video (watch it in both viewers), pushing `feat/kinematics` and opening a PR, and the host-side `make build` for the Rerun C++ SDK (from Plan 02). Next: Plan 04, M3 (operational-space / impedance control with Pinocchio dynamics, drawer task).
+
+---
+
+## Session — 2026-10-06
+
+**Plan:** [Plan 04 — Task-Space Control (M3, part 1)](plan/2026-10-04-plan-04-task-space-control.md). Branch `feat/controllers`. Work ran 2026-10-04 to 2026-10-06.
+
+### Decisions (recorded as D20–D22 in this session's docs commit)
+
+- **D20:** the task-space controllers share one ROS-free core (`RobotDynamics`, `TaskSpaceControl`) under two thin `ros2_control` plugins; targets arrive on `~/target_pose`.
+- **D21:** `sim.launch.py` injects the URDF, joint names, frames, rest pose and `compensate_gravity = not gravcomp` into the controllers.
+- **D22:** the sim's `ExternalWrenchPlugin` is opt-in (`external_wrench:=true`).
+- User choices for M3: split it into two plans (Plan 04 controllers, Plan 05 drawer); OSC + Cartesian impedance; build on our own `KinematicChain`.
+
+### Changes
+
+- Plan 03 merged to `master` as PR #5 (`b9538b6`). Plans 04 and 05 written from scratch-verified code (`0917f8c`), README updated (`d9035a8`), and every plan got a task overview at the top (`487e9fb`).
+- **Task 1** (`e74ad54`): allocation-free `fk(q, pose)` / `jacobian(q, J)` overloads in `KinematicChain`, with an `EIGEN_RUNTIME_NO_MALLOC` test.
+- **Task 2** (`eca34b1`): the `arm_sandbox_controllers` package and `RobotDynamics` (Pinocchio, reduced to the arm joints, plus armature 0.1). `test_dynamics_model.py` checks M(q) and g(q) against MuJoCo.
+- **Task 3** (`84fc980`): `TaskSpaceControl`, with the OSC and Cartesian impedance laws, the dynamically consistent null-space pull to the rest pose, and a no-allocation test of `compute()`.
+- **Task 4** (`2006437`): the two `ros2_control` plugins (`RealtimeBuffer` targets, `RealtimePublisher` state), their YAML, and the `arm_controller:=` / `external_wrench:=` launch arguments.
+- Package README (`3b46795`), added early after the user flagged it as missing; Plan 04 Task 7 was adjusted to match.
+- **Task 5** (`87a5f97`): `test_impedance_compliance.py`. A 10 N push at 500 N/m deflects the end effector by 2.0 cm, and it springs back.
+- **Task 6** (`71f6654`): `reach_runner` gets `motion` = `joint_trajectory` | `pose_target`, and `reach.launch.py` gets `controller:=`. `test_reach.py` covers 3 controllers × 2 gravcomp modes (12 cases). Gravcomp off: JTC 1.2–4.0 mm in 1.5–3.4 s per target, OSC ≈ 0.1 mm in 0.9–1.2 s, impedance 0.3–2.8 mm in 1.5–2.2 s.
+- **Task 7** (this session's docs commit): D20–D22, the spec's Controllers section, `PROJECT_STRUCTURE.md`, the `CLAUDE.md` status, both READMEs, and the Plan 04 reading list.
+
+### Learned
+
+- **rcl's parameter parser rejects YAML aliases** ("Will not support aliasing"). PyYAML emits them for repeated lists, so the launch dumps with a no-alias `SafeDumper`.
+- **`ExternalWrenchPlugin` (mujoco_ros2_control 0.1.2) segfaults `ros2_control_node` on shutdown** (exit −11), so it is opt-in (D22). Its request field is `wrenches.external_wrenches`, and the force is in the body frame.
+- **Nested Eigen products allocate** even into preallocated outputs. The `EIGEN_RUNTIME_NO_MALLOC` test caught one in `compute()`; splitting it through a `Vector6d` temporary fixed it. These tests need `-UNDEBUG`, because the guard is an assert.
+- **The armature matters.** The URDF can't express the MJCF's reflected rotor inertia (0.1 per joint). With it added to Pinocchio's model, M(q) matches MuJoCo's to about 3e-8.
+- **Gravity must be compensated exactly once.** Adding g(q) when MuJoCo's gravcomp is on (or leaving it out when it is off) misses targets by centimetres, hence D21.
+- **`kill -INT` on background jobs does nothing in non-interactive shells** (SIGINT is ignored there). Use `timeout -s INT` to stop a launch cleanly.
+- **`MjSpec.attach` with an empty prefix** doesn't round-trip through XML (found while preparing Plan 05). Use `"<stem>/"`.
+
+### State at end of session
+
+M3 part 1 is done: `make start_sim ARGS="arm_controller:=osc_controller"` (or `cartesian_impedance_controller`) plus `make start_reach ARGS="controller:=osc_controller"` reaches all 5 targets, and `make test` reports 95 tests, 0 failures. Still open: the M2/M3 demo videos, pushing `feat/controllers` and opening a PR, the host-side `make build` for the Rerun C++ SDK, and (optionally) stopping VS Code CMake Tools from configuring packages without a sourced ROS environment. Next: Plan 05 (drawer task, M3 part 2) on a new branch after the merge.

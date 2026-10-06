@@ -1,0 +1,9 @@
+# mujoco_ros2_control plugins (D13), loaded into the sim's own node when sim.launch.py gets
+# external_wrench:=true. Tools for tests and demos, not for controllers: controllers never talk to
+# MuJoCo. (Opt-in because this plugin makes ros2_control_node segfault on shutdown in 0.1.2.)
+mujoco_ros2_control_node:
+  ros__parameters:
+    mujoco_plugins:
+      # Push on a body: ~/apply_wrench (mujoco_ros2_control_msgs/srv/ApplyExternalWrench).
+      external_wrench:
+        type: mujoco_ros2_control_plugins/ExternalWrenchPlugin

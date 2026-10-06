@@ -8,6 +8,7 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <exec_depend>arm_sandbox_controllers</exec_depend>
   <exec_depend>arm_sandbox_description</exec_depend>
   <exec_depend>arm_sandbox_sim</exec_depend>
   <exec_depend>arm_sandbox_viz</exec_depend>
@@ -21,18 +22,23 @@
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>mujoco_ros2_control</exec_depend>
   <exec_depend>mujoco_ros2_control_msgs</exec_depend>
+  <exec_depend>mujoco_ros2_control_plugins</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>xacro</exec_depend>
 
   <test_depend>action_msgs</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>pinocchio</test_depend>
   <test_depend>control_msgs</test_depend>
   <test_depend>launch_testing_ament_cmake</test_depend>
   <test_depend>launch_testing_ros</test_depend>
   <test_depend>rclpy</test_depend>
   <test_depend>rosgraph_msgs</test_depend>
+  <test_depend>python3-numpy</test_depend>
   <test_depend>sensor_msgs</test_depend>
+  <test_depend>tf2_ros</test_depend>
   <test_depend>trajectory_msgs</test_depend>
 
   <export>

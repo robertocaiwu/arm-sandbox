@@ -55,6 +55,17 @@ if(BUILD_TESTING)
       TEST_URDF_PATH="${TEST_URDF}"
       TEST_ROBOT_CONFIG_PATH="${TEST_ROBOT_DIR}/config/robot.yaml")
   endforeach()
+
+  # Real-time check: compiles the library sources into the test with Eigen's allocation guard on.
+  # Release builds define NDEBUG, which would silence the guard's assert, so undefine it here.
+  ament_add_gtest(test_realtime test/test_realtime.cpp src/kinematic_chain.cpp)
+  add_dependencies(test_realtime test_urdf)
+  target_include_directories(test_realtime PRIVATE include ${urdfdom_INCLUDE_DIRS})
+  target_link_libraries(test_realtime Eigen3::Eigen urdfdom::urdf_parser yaml-cpp)
+  target_compile_definitions(test_realtime PRIVATE EIGEN_RUNTIME_NO_MALLOC
+    TEST_URDF_PATH="${TEST_URDF}"
+    TEST_ROBOT_CONFIG_PATH="${TEST_ROBOT_DIR}/config/robot.yaml")
+  target_compile_options(test_realtime PRIVATE -UNDEBUG)
 endif()
 
 ament_package()

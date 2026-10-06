@@ -1,0 +1,12 @@
+<library path="task_space_controllers">
+  <class name="arm_sandbox_controllers/OscController"
+         type="arm_sandbox_controllers::OscController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Operational-space controller: tracks a target pose (~/target_pose) with the task-space inertia; effort interface.</description>
+  </class>
+  <class name="arm_sandbox_controllers/CartesianImpedanceController"
+         type="arm_sandbox_controllers::CartesianImpedanceController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Cartesian impedance controller: a spring-damper towards a target pose (~/target_pose); effort interface.</description>
+  </class>
+</library>

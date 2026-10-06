@@ -37,9 +37,14 @@ public:
 
   /// Pose of the tip frame in the base frame. Throws std::invalid_argument on a wrong-size `q`.
   Eigen::Isometry3d fk(const Eigen::VectorXd & q) const;
+  /// Same, written into `pose`. Never allocates: safe in a real-time control loop.
+  void fk(const Eigen::VectorXd & q, Eigen::Isometry3d & pose) const;
 
   /// Geometric Jacobian of the tip origin in the base frame (see `Jacobian`).
   Jacobian jacobian(const Eigen::VectorXd & q) const;
+  /// Same, written into `jacobian`, which must already be 6 x num_joints(). Never allocates.
+  /// Throws std::invalid_argument on a wrong-size `q` or `jacobian`.
+  void jacobian(const Eigen::VectorXd & q, Jacobian & jacobian) const;
 
   /// Yoshikawa's manipulability, sqrt(det(J J^T)). Zero at a singularity.
   double manipulability(const Eigen::VectorXd & q) const;
@@ -55,6 +60,8 @@ private:
   };
 
   void check_size(const Eigen::VectorXd & q) const;
+  /// Applies joint i's origin and motion to `transform` (in place, no allocation).
+  void advance(std::size_t i, double value, Eigen::Isometry3d & transform) const;
 
   std::vector<Joint> joints_;
   Eigen::Isometry3d tip_offset_;  ///< fixed joints after the last moving joint

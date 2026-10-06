@@ -1,6 +1,8 @@
-"""M2 acceptance: with the sim running, reach_runner reaches every target of the reach task.
+"""M2/M3 acceptance: with the sim running, reach_runner reaches every target of the reach task.
 
-Runs once per gravity-compensation mode (D15), like test_arm_trajectory.py.
+Runs once per arm controller and gravity-compensation mode (D15): IK + joint trajectory (M2), and
+the operational-space and impedance controllers (M3). With gravcomp:=true the task-space
+controllers must not add gravity themselves (else they'd miss by centimetres).
 """
 
 import unittest
@@ -24,15 +26,31 @@ def launch_file(package: str, name: str) -> str:
 
 
 @pytest.mark.launch_test
-@launch_testing.parametrize("gravcomp", ["false", "true"])
-def generate_test_description(gravcomp: str):
+@launch_testing.parametrize(
+    "controller, gravcomp",
+    [
+        ("arm_controller", "false"),
+        ("arm_controller", "true"),
+        ("osc_controller", "false"),
+        ("osc_controller", "true"),
+        ("cartesian_impedance_controller", "false"),
+        ("cartesian_impedance_controller", "true"),
+    ],
+)
+def generate_test_description(controller: str, gravcomp: str):
     sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(launch_file("arm_sandbox_bringup", "sim.launch.py")),
-        launch_arguments={"robot": "panda", "viewer": "false", "rerun": "false", "gravcomp": gravcomp}.items(),
+        launch_arguments={
+            "robot": "panda",
+            "viewer": "false",
+            "rerun": "false",
+            "gravcomp": gravcomp,
+            "arm_controller": controller,
+        }.items(),
     )
     reach = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(launch_file("arm_sandbox_tasks", "reach.launch.py")),
-        launch_arguments={"robot": "panda", "task": "reach"}.items(),
+        launch_arguments={"robot": "panda", "task": "reach", "controller": controller}.items(),
     )
     return LaunchDescription([sim, reach, ReadyToTest()])
 

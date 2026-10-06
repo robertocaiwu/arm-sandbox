@@ -10,6 +10,20 @@
 
 **Spec:** [`../specs/2026-10-01-arm-sandbox-design.md`](../specs/2026-10-01-arm-sandbox-design.md) (design) and [`../REQUIREMENTS.md`](../REQUIREMENTS.md) (requirements, D1–D14). Read both before starting. Plan 01 ([`2026-10-01-plan-01-foundation.md`](2026-10-01-plan-01-foundation.md)) built the environment this plan uses.
 
+## Task overview
+
+Click a task to jump to it.
+
+- [Task 1: Torque-actuated MJCF with URDF names, and `robot.yaml`](#task-1-torque-actuated-mjcf-with-urdf-names-and-robotyaml): Torque-actuated MJCF with URDF names, tendon gripper, `home` keyframe; `robot.yaml`.
+- [Task 2: Panda URDF xacro that agrees with the MJCF](#task-2-panda-urdf-xacro-that-agrees-with-the-mjcf): Panda URDF xacro from the Menagerie meshes; FK, limits and mass agree with the MJCF (Pinocchio).
+- [Task 3: Scene composition with switchable gravity compensation (`arm_sandbox_sim`)](#task-3-scene-composition-with-switchable-gravity-compensation-arm_sandbox_sim): `arm_sandbox_sim`: compose the scene at launch, gravity compensation switchable.
+- [Task 4: Bring-up — `ros2_control` block, controllers, `sim.launch.py`](#task-4-bring-up--ros2_control-block-controllers-simlaunchpy): Bring-up: `ros2_control` block, controllers YAML, `activate_at_home`, `sim.launch.py`; the arm holds home.
+- [Task 5: The arm follows a joint trajectory (M1 acceptance)](#task-5-the-arm-follows-a-joint-trajectory-m1-acceptance): M1 acceptance: the arm follows a trajectory and the gripper moves, both gravcomp modes; `make start_sim`.
+- [Task 6: Rerun C++ SDK in the toolchain](#task-6-rerun-c-sdk-in-the-toolchain): Rerun C++ SDK built by `install_deps.sh`, with smoke tests.
+- [Task 7: `arm_sandbox_viz` — ROS 2 → Rerun bridge node](#task-7-arm_sandbox_viz--ros-2--rerun-bridge-node): `arm_sandbox_viz`: C++ bridge logging the URDF, TF and joint states to Rerun.
+- [Task 8: Viewer in the sim launch, and the M0 check](#task-8-viewer-in-the-sim-launch-and-the-m0-check): Rerun in `sim.launch.py` (`rerun`, `rerun_save`) and the M0 check in browser + native viewer.
+- [Task 9: Record the decisions, update the docs, add package READMEs](#task-9-record-the-decisions-update-the-docs-add-package-readmes): Docs: decisions D15–D17, spec/CLAUDE.md/PROJECT_STRUCTURE.md, package READMEs.
+
 ## Global Constraints
 
 - ROS 2 **Humble** (Ubuntu 22.04), D7. MuJoCo **3.12.0** everywhere, D14. Sim backend **`mujoco_ros2_control` 0.1.2**, D13. Rerun **0.38.1** (`RERUN_VERSION` in `scripts/install_deps.sh`).

@@ -111,8 +111,10 @@ ROS-free C++17 library with Eigen. It is built from the URDF through `urdfdom`.
 | `joint_impedance_controller` | effort | `JointState` target topic | Phase B policy output |
 | `gripper_action_controller` (stock, `gripper_controllers`) | position | `control_msgs/GripperCommand` action | Gripper |
 
-- Each custom controller is a thin `controller_interface::ControllerInterface` wrapper around a class in the ROS-free core (`osc.hpp`, `impedance.hpp`). Dynamics come from Pinocchio.
-- Real-time safe: targets go through `realtime_tools::RealtimeThreadSafeBox`. No allocation in `update()`. Gains come from YAML.
+- Each custom controller is a thin `controller_interface::ControllerInterface` wrapper around the ROS-free core (`robot_dynamics.hpp`, `task_space_control.hpp`, D20). Dynamics come from Pinocchio.
+- Real-time safe: targets go through `realtime_tools::RealtimeBuffer` (Humble has no `RealtimeThreadSafeBox`), state through `RealtimePublisher`. No allocation in `update()`: `KinematicChain` has allocation-free `fk`/`jacobian` overloads, and tests built with `EIGEN_RUNTIME_NO_MALLOC` prove the control core never allocates. Gains, armature and limits come from YAML.
+- The model is Pinocchio on the URDF, reduced to the arm joints, plus the MJCF's armature (0.1 per joint); it matches MuJoCo's M(q) and g(q) to 1e-6 (`test_dynamics_model.py`). Controllers add g(q) only if `compensate_gravity` (= not `gravcomp`, injected by the launch with the URDF, names and rest pose, D21).
+- `sim.launch.py arm_controller:=` chooses the active arm controller (all are loaded). Measured on the reach task: OSC ≈ 0.1 mm in about 1 s, impedance 0.3–2.8 mm, IK + JTC 1.2–4.0 mm without simulator gravity compensation.
 - The executive switches controllers through the `controller_manager` `switch_controller` service. Only one arm controller is active at a time.
 - Each controller publishes a state topic (target, actual, error) for plots.
 

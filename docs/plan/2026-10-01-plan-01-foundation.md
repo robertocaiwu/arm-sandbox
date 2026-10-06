@@ -10,6 +10,21 @@
 
 **Spec:** [`../specs/2026-10-01-arm-sandbox-design.md`](../specs/2026-10-01-arm-sandbox-design.md) (design) and [`../REQUIREMENTS.md`](../REQUIREMENTS.md) (requirements). Read both before starting.
 
+## Task overview
+
+Click a task to jump to it.
+
+- [Task 1: Initialize the `arm-sandbox` repository](#task-1-initialize-the-arm-sandbox-repository): Standalone git repo on `main` with `.gitignore`, `.gitattributes`, `LICENSE`, first commit.
+- [Task 2: Create the GitHub remote and push](#task-2-create-the-github-remote-and-push): Private GitHub repo created, `main` pushed.
+- [Task 3: Dev image, Compose service, and toolchain smoke tests](#task-3-dev-image-compose-service-and-toolchain-smoke-tests): Dev image: `install_deps.sh`, Dockerfile, Compose service, `select_gpu.sh`, Makefile, toolchain smoke tests.
+- [Task 4: VS Code dev container with Claude Code](#task-4-vs-code-dev-container-with-claude-code): VS Code dev container attached to the `sandbox` service, with Claude Code.
+- [Task 5: Bring the docs in line with the environment](#task-5-bring-the-docs-in-line-with-the-environment): Docs updated with the dev-environment commands.
+- [Task 6: Export the session bundle (old PC, last thing before switching)](#task-6-export-the-session-bundle-old-pc-last-thing-before-switching): *Manual:* export the Claude session bundle on the old PC.
+- [Task 7: Set up the new PC and resume](#task-7-set-up-the-new-pc-and-resume): *Manual:* set up the new PC and resume the session.
+- [Task 8: Vendor the Panda MJCF as the first colcon package](#task-8-vendor-the-panda-mjcf-as-the-first-colcon-package): Menagerie Panda MJCF vendored as `arm_sandbox_description`, with a load-and-simulate test.
+- [Task 9: Rerun web viewer smoke test](#task-9-rerun-web-viewer-smoke-test): Rerun web viewer smoke test (web 9090, gRPC 9876).
+- [Task 10: Sim backend spike (`mujoco_ros2_control` vs own hardware interface)](#task-10-sim-backend-spike-mujoco_ros2_control-vs-own-hardware-interface): Sim-backend spike: `mujoco_ros2_control` vs our own interface, decided as D13.
+
 ## Global Constraints
 
 - ROS 2 **Humble** (Ubuntu 22.04). MuJoCo **3.x**. (REQUIREMENTS §5, D7, changed from Jazzy because the dev environment is Ubuntu 22.04)
