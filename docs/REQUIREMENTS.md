@@ -1,6 +1,6 @@
 # arm-sandbox — Requirements (Draft v0.4)
 
-> Status: fourth draft, 2026-10-01; D15–D17 added 2026-10-02 (Plan 02), D18–D19 added 2026-10-02 (Plan 03). Decisions made so far are in §10. Open questions are in §11.
+> Status: fourth draft, 2026-10-01; D15–D17 added 2026-10-02 (Plan 02), D18–D19 added 2026-10-02 (Plan 03), D20–D22 added 2026-10-04 (Plan 04). Decisions made so far are in §10. Open questions are in §11.
 
 ## 1. Purpose
 
@@ -254,6 +254,9 @@ Each milestone should end with something worth showing (a video plus numbers), s
 | D17 | Rerun C++ SDK built from the release bundle by `install_deps.sh` into `/opt/rerun_cpp_sdk`, same version as the viewer | No apt package; one dependency list, offline colcon builds |
 | D18 | M2's reach task runs as a `reach_runner` node (IK → one JTC goal → TF check), not a `MoveToPose` action | Smallest proof of M2; skill actions come with MoveIt in M4, which would replace an IK-only action server anyway |
 | D19 | Analytic IK deferred; M2 ships damped-least-squares IK (manipulability-scaled damping, SVD null-space task, joint clamping) | The spec specifies numerical IK; closed-form Panda IK (q7 as free parameter) is robot-specific and becomes a stretch item |
+| D20 | Task-space controllers share one ROS-free core (`RobotDynamics`: Pinocchio + armature; `TaskSpaceControl` with OSC and Cartesian impedance laws) under two thin `ros2_control` plugins; targets on `~/target_pose` | One tested implementation of the control math (and later the Gym env's); plugins stay thin |
+| D21 | `sim.launch.py` injects URDF, joint names, frames, rest pose and `compensate_gravity = not gravcomp` into the task-space controllers | robot.yaml and the URDF stay the single source; gravity is compensated exactly once (a wrong flag misses targets by cm) |
+| D22 | The sim's `ExternalWrenchPlugin` is opt-in (`external_wrench:=true`) | It makes `ros2_control_node` segfault on shutdown in mujoco_ros2_control 0.1.2 |
 
 ## 11. Open Questions
 

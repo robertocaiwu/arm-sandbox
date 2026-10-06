@@ -24,6 +24,18 @@ Both work on the end-effector error e = [p* - p; angle-axis(R* R^T)] and twist x
   dynamically consistent null-space projector).
 - g is added only when nothing else compensates gravity (`compensate_gravity`, set by the launch).
 
+Measured on the reach task (5 targets, simulator gravity compensation off, error after a 0.5 s hold;
+`make start_reach ARGS="controller:=<name>"`):
+
+| Controller | Final error | Time per target |
+|---|---|---|
+| IK + joint trajectory controller | 1.2–4.0 mm | 1.5–3.4 s |
+| `osc_controller` | ≈ 0.1 mm | 0.9–1.2 s |
+| `cartesian_impedance_controller` | 0.3–2.8 mm | 1.5–2.2 s |
+
+OSC is the most precise because Lambda cancels the arm's inertia; impedance trades precision for
+compliance, which is what the drawer task (Plan 05) needs.
+
 ## Real time
 
 `update()` never allocates: preallocated workspace, allocation-free kinematics overloads, and tests

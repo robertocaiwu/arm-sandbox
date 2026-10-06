@@ -84,3 +84,27 @@ Plan: [plan/2026-10-02-plan-03-kinematics-and-reach.md](plan/2026-10-02-plan-03-
    Siciliano Ch. 3. The code comments point at the same formulas.
 4. Plan 03's theory blurbs, then `src/arm_sandbox_kinematics/README.md` (added in Plan 03, Task 5)
    for a one-page summary.
+
+---
+
+## Plan 04 — Task-Space Control (M3, part 1)
+
+Plan: [plan/2026-10-04-plan-04-task-space-control.md](plan/2026-10-04-plan-04-task-space-control.md)
+
+- **Khatib (1987)**, "A unified approach for motion and force control of robot manipulators: The
+  operational space formulation", *IEEE Journal on Robotics and Automation*. The OSC law, Lambda, and
+  the dynamically consistent null space.
+- **Hogan (1985)**, "Impedance Control: An Approach to Manipulation" (parts I–III), *Journal of Dynamic
+  Systems, Measurement, and Control*. Impedance control.
+- **Siciliano et al.**, Ch. 7 (dynamics), Ch. 8 (motion control, incl. operational space) and Ch. 9
+  (force control, incl. impedance). **Lynch & Park, *Modern Robotics***, Ch. 8 (dynamics) and Ch. 11
+  (robot control: computed torque, task-space and impedance control).
+- **Featherstone, *Rigid Body Dynamics Algorithms*** (Springer): CRBA (mass matrix), RNEA (C q' + g),
+  ABA (forward dynamics) — the algorithms Pinocchio implements.
+- **Pinocchio docs**: `crba`, `nonLinearEffects`, `computeGeneralizedGravity`, `aba`,
+  `buildReducedModel`, `Model::armature`.
+- **control.ros.org**: "Writing a new controller" and the `realtime_tools` docs. franka_ros2's
+  Cartesian impedance example controller is a good real-robot comparison.
+
+Suggested order: Lynch & Park Ch. 11 for the big picture, then Khatib and Hogan, then
+`src/arm_sandbox_controllers/README.md` and `src/task_space_control.cpp` side by side.
